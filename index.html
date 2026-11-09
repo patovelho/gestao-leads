@@ -36,7 +36,7 @@
         </label>
       </div>
       
-      <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Buscar por nome ou sequência do celular..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-72">
+      <input type="text" id="searchInput" oninput="debounceSearch()" value="" placeholder="Buscar por nome ou sequência do celular..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-80">
     </div>
 
     <!-- Barra de Progresso de Importação -->
@@ -301,11 +301,9 @@
       }
     }
 
-    // Carrega o contador total exato e os últimos 100 leads por padrão
     async function loadLeadsAndCount() {
       if (!supabaseClient) return;
 
-      // Buscar contagem total exata da tabela
       const { count, error: countError } = await supabaseClient
         .from('leads')
         .select('*', { count: 'exact', head: true });
@@ -314,7 +312,6 @@
         document.getElementById('totalLeadsBadge').innerText = `${count} leads`;
       }
 
-      // Carregar apenas os últimos 100 mais recentes
       const { data, error } = await supabaseClient
         .from('leads')
         .select('*')
@@ -344,7 +341,6 @@
       loadLeadsAndCount();
     }
 
-    // Debounce para busca no banco de dados ao digitar
     function debounceSearch() {
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => {
@@ -360,18 +356,15 @@
       }
 
       const container = document.getElementById('leadsList');
-      container.innerHTML = `<p class="text-center text-slate-500 py-8 text-sm">A pesquisar na base de dados...</p>`;
+      container.innerHTML = `<p class="text-center text-slate-500 py-8 text-sm">Pesquisando na base de dados...</p>`;
 
-      // Busca por nome ou WhatsApp (removendo formatação para buscar por sequência de números)
       const cleanDigits = searchVal.replace(/\D/g, '');
       
       let query = supabaseClient.from('leads').select('*').order('created_at', { ascending: false });
 
       if (cleanDigits.length >= 3) {
-        // Se digitou números, busca pelo telefone
         query = query.ilike('whatsapp', `%${cleanDigits}%`);
       } else {
-        // Se digitou texto, busca pelo nome
         query = query.ilike('nome', `%${searchVal}%`);
       }
 
@@ -385,10 +378,6 @@
 
       currentLeads = data || [];
       renderLeads(currentLeads);
-    }
-
-    function filterLeads() {
-      // Usado pelo input
     }
 
     function addToGoogleCalendar(nome, fone, tipo, dataIso, notas) {

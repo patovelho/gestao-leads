@@ -31,12 +31,12 @@
           ➕ Novo Lead
         </button>
         <label id="importLabel" class="bg-emerald-600 hover:bg-emerald-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition cursor-pointer">
-          📥 Importar em Lotes (Seguro)
+          📥 Importar Planilha
           <input type="file" id="fileImport" accept=".xls,.xlsx,.html,.htm,.csv" class="hidden" onchange="importFile(event)">
         </label>
       </div>
       
-      <input type="text" id="searchInput" oninput="filterLeads()" placeholder="Buscar por nome, fone ou imóvel..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500">
+      <input type="text" id="searchInput" oninput="filterLeads()" placeholder="Buscar por nome ou sequência do celular..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-72">
     </div>
 
     <!-- Barra de Progresso de Importação -->
@@ -300,7 +300,6 @@
       }
     }
 
-    // Carregar TODOS os leads sem o limite padrão de 1000 do Supabase (paginado em blocos de 1000)
     async function loadLeads() {
       if (!supabaseClient) return;
       
@@ -356,25 +355,50 @@
       renderLeads();
     }
 
+    function addToGoogleCalendar(nome, fone, tipo, dataIso, notas) {
+      const title = encodeURIComponent(`Visita/Follow-up: ${nome} (${tipo || 'Imóvel'})`);
+      const details = encodeURIComponent(`Cliente: ${nome}\nWhatsApp: ${fone}\nObservações: ${notas || 'N/I'}`);
+      
+      let startDate = new Date();
+      let endDate = new Date(startDate.getTime() + 60*60*1000); // 1 hora de duração padrão
+
+      if (dataIso) {
+        startDate = new Date(dataIso);
+        endDate = new Date(startDate.getTime() + 60*60*1000);
+      }
+
+      const fmtGCalDate = d => d.toISOString().replace(/-|:|\.\d\d\d/g,"");
+      const dates = `${fmtGCalDate(startDate)}/${fmtGCalDate(endDate)}`;
+
+      const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&dates=${dates}`;
+      window.open(url, '_blank');
+    }
+
     function renderLeads() {
-      const search = document.getElementById('searchInput').value.toLowerCase();
+      const searchRaw = document.getElementById('searchInput').value.toLowerCase().trim();
+      const searchDigits = searchRaw.replace(/\D/g, ''); // Apenas números para buscar sequência no celular
       const container = document.getElementById('leadsList');
       container.innerHTML = '';
 
       const now = new Date().toISOString().slice(0, 10);
 
       const filtered = allLeads.filter(l => {
-        const matchesSearch = (l.nome || '').toLowerCase().includes(search) || 
-                              (l.whatsapp || '').includes(search) ||
-                              (l.tipo_imovel || '').toLowerCase().includes(search);
+        const leadNome = (l.nome || '').toLowerCase();
+        const leadFoneDigits = (l.whatsapp || '').replace(/\D/g, '');
+        
+        const matchName = searchRaw === '' || leadNome.includes(searchRaw);
+        const matchPhone = searchDigits !== '' && leadFoneDigits.includes(searchDigits);
+        const matchesSearch = matchName || matchPhone || (searchRaw !== '' && (l.whatsapp || '').toLowerCase().includes(searchRaw));
         
         if (!matchesSearch) return false;
+
+        const leadStatus = l.status || 'Novo';
 
         if (currentFilter === 'hoje') {
           return l.proximo_follow_up && l.proximo_follow_up.slice(0, 10) <= now;
         }
         if (currentFilter !== 'todos') {
-          return l.status === currentFilter;
+          return leadStatus === currentFilter;
         }
         return true;
       });
@@ -384,7 +408,6 @@
         return;
       }
 
-      // Renderizar os primeiros 100 leads filtrados para manter o navegador leve e rápido
       const displayList = filtered.slice(0, 100);
 
       displayList.forEach(lead => {
@@ -405,8 +428,13 @@
           const dt = new Date(lead.proximo_follow_up);
           const isPast = dt < new Date();
           followUpBadge = `
-            <div class="text-xs ${isPast ? 'text-rose-400 font-semibold' : 'text-amber-300'} flex items-center gap-1 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700">
-              ⏰ Follow-up: ${dt.toLocaleDateString('pt-BR')} às ${dt.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
+            <div class="flex items-center justify-between bg-slate-900/60 p-2 rounded-lg border border-slate-700 text-xs">
+              <span class="${isPast ? 'text-rose-400 font-semibold' : 'text-amber-300'} flex items-center gap-1">
+                ⏰ Follow-up: ${dt.toLocaleDateString('pt-BR')} às ${dt.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
+              </span>
+              <button onclick="addToGoogleCalendar('${lead.nome.replace(/'/g, "\\'")}', '${lead.whatsapp || ''}', '${lead.tipo_imovel || 'Imóvel'}', '${lead.proximo_follow_up}', '${(lead.notas_follow_up || '').replace(/'/g, "\\'")}')" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-[11px] flex items-center gap-1">
+                🗓️ Google Agenda
+              </button>
             </div>`;
         }
 

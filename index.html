@@ -30,8 +30,8 @@
         <button onclick="openLeadModal()" class="bg-blue-600 hover:bg-blue-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition">
           ➕ Novo Lead
         </button>
-        <label class="bg-emerald-600 hover:bg-emerald-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition cursor-pointer">
-          📥 Importar Planilha
+        <label id="importLabel" class="bg-emerald-600 hover:bg-emerald-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition cursor-pointer">
+          📥 Importar Planilha (Completa)
           <input type="file" id="fileImport" accept=".xls,.xlsx,.html,.htm,.csv" class="hidden" onchange="importFile(event)">
         </label>
       </div>
@@ -370,7 +370,6 @@
             </div>`;
         }
 
-        // Data de criação ou contato formatada
         const dtCriacao = lead.created_at ? new Date(lead.created_at).toLocaleString('pt-BR', {dateStyle: 'short', timeStyle: 'short'}) : '';
 
         card.innerHTML = `
@@ -422,6 +421,9 @@
         return;
       }
 
+      const importLabel = document.getElementById('importLabel');
+      importLabel.innerText = "⏳ A importar (lote)...";
+
       const reader = new FileReader();
       reader.onload = async function(e) {
         try {
@@ -432,6 +434,7 @@
 
           if (rows.length <= 1) {
             alert('Nenhum dado encontrado no arquivo.');
+            importLabel.innerText = "📥 Importar Planilha (Completa)";
             return;
           }
 
@@ -449,6 +452,7 @@
           let duplicatedCount = 0;
 
           const existingPhones = new Set(allLeads.map(l => (l.whatsapp || '').replace(/\D/g, '')));
+          let batch = [];
 
           for (let i = 1; i < rows.length; i++) {
             const cols = rows[i].querySelectorAll('td');
@@ -488,7 +492,6 @@
             else if (msgLower.includes('comercial')) tipo_imovel = 'Comercial';
             else if (msgLower.includes('cobertura')) tipo_imovel = 'Cobertura';
 
-            // Converter data do formato "09/11/2026 às 19:18:13" para formato ISO se possível
             let parsedDate = new Date();
             if (dataRaw) {
               const parts = dataRaw.match(/(\d{2})\/(\d{2})\/(\d{4}).*?(\d{2}):(\d{2}):(\d{2})/);
@@ -497,7 +500,7 @@
               }
             }
 
-            const newLead = {
+            batch.push({
               nome: nome,
               whatsapp: foneRaw || 'Não informado',
               origem: origem,
@@ -509,20 +512,30 @@
               status: 'Novo',
               created_at: parsedDate.toISOString(),
               notas_follow_up: 'Importado da planilha. ' + (msgFull.length > 120 ? msgFull.substring(0, 120) + '...' : msgFull)
-            };
+            });
 
-            const { error } = await supabaseClient.from('leads').insert([newLead]);
-            if (!error) {
-              importedCount++;
-              if (cleanFone) existingPhones.add(cleanFone);
+            if (cleanFone) existingPhones.add(cleanFone);
+
+            // Enviar em lotes de 50 para garantir velocidade e estabilidade
+            if (batch.length >= 50) {
+              const { error } = await supabaseClient.from('leads').insert(batch);
+              if (!error) importedCount += batch.length;
+              batch = [];
             }
           }
 
-          alert(`Importação concluída!\n✅ Novos leads importados: ${importedCount}\n⚠️ Duplicados ignorados: ${duplicatedCount}`);
+          // Enviar o restante do lote final
+          if (batch.length > 0) {
+            const { error } = await supabaseClient.from('leads').insert(batch);
+            if (!error) importedCount += batch.length;
+          }
+
+          alert(`Importação concluída com sucesso!\n✅ Novos leads importados: ${importedCount}\n⚠️ Duplicados ignorados: ${duplicatedCount}`);
           loadLeads();
         } catch (err) {
           alert('Erro ao processar arquivo: ' + err.message);
         } finally {
+          importLabel.innerText = "📥 Importar Planilha (Completa)";
           event.target.value = '';
         }
       };

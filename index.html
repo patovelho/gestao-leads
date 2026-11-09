@@ -36,7 +36,7 @@
         </label>
       </div>
       
-      <input type="text" id="searchInput" oninput="filterLeads()" placeholder="Buscar por nome ou sequência do celular..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-72">
+      <input type="text" id="searchInput" oninput="debounceSearch()" placeholder="Buscar por nome ou sequência do celular..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-72">
     </div>
 
     <!-- Barra de Progresso de Importação -->
@@ -190,8 +190,9 @@
 
   <script>
     let supabaseClient = null;
-    let allLeads = [];
+    let currentLeads = [];
     let currentFilter = 'todos';
+    let searchTimeout = null;
 
     function initSupabase() {
       const url = localStorage.getItem('sp_url');
@@ -200,7 +201,7 @@
         supabaseClient = supabase.createClient(url, key);
         document.getElementById('cfgUrl').value = url;
         document.getElementById('cfgKey').value = key;
-        loadLeads();
+        loadLeadsAndCount();
       } else {
         toggleModal('configModal');
       }
@@ -214,7 +215,7 @@
         localStorage.setItem('sp_key', key);
         supabaseClient = supabase.createClient(url, key);
         toggleModal('configModal');
-        loadLeads();
+        loadLeadsAndCount();
       }
     }
 
@@ -296,45 +297,37 @@
         alert('Erro ao salvar: ' + error.message);
       } else {
         toggleModal('leadModal');
-        loadLeads();
+        loadLeadsAndCount();
       }
     }
 
-    async function loadLeads() {
+    // Carrega o contador total exato e os últimos 100 leads por padrão
+    async function loadLeadsAndCount() {
       if (!supabaseClient) return;
-      
-      let allData = [];
-      let step = 1000;
-      let from = 0;
-      let keepFetching = true;
 
-      while (keepFetching) {
-        const { data, error } = await supabaseClient
-          .from('leads')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .range(from, from + step - 1);
+      // Buscar contagem total exata da tabela
+      const { count, error: countError } = await supabaseClient
+        .from('leads')
+        .select('*', { count: 'exact', head: true });
 
-        if (error) {
-          console.error(error);
-          break;
-        }
-
-        if (data && data.length > 0) {
-          allData = allData.concat(data);
-          if (data.length < step) {
-            keepFetching = false;
-          } else {
-            from += step;
-          }
-        } else {
-          keepFetching = false;
-        }
+      if (!countError && count !== null) {
+        document.getElementById('totalLeadsBadge').innerText = `${count} leads`;
       }
 
-      allLeads = allData;
-      document.getElementById('totalLeadsBadge').innerText = `${allLeads.length} leads`;
-      renderLeads();
+      // Carregar apenas os últimos 100 mais recentes
+      const { data, error } = await supabaseClient
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      currentLeads = data || [];
+      renderLeads(currentLeads);
     }
 
     function setFilter(filter) {
@@ -348,11 +341,54 @@
         activeBtn.classList.remove('bg-slate-800', 'text-slate-400');
         activeBtn.classList.add('bg-blue-600', 'text-white');
       }
-      renderLeads();
+      loadLeadsAndCount();
+    }
+
+    // Debounce para busca no banco de dados ao digitar
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        performSearch();
+      }, 400);
+    }
+
+    async function performSearch() {
+      const searchVal = document.getElementById('searchInput').value.trim();
+      if (!searchVal) {
+        loadLeadsAndCount();
+        return;
+      }
+
+      const container = document.getElementById('leadsList');
+      container.innerHTML = `<p class="text-center text-slate-500 py-8 text-sm">A pesquisar na base de dados...</p>`;
+
+      // Busca por nome ou WhatsApp (removendo formatação para buscar por sequência de números)
+      const cleanDigits = searchVal.replace(/\D/g, '');
+      
+      let query = supabaseClient.from('leads').select('*').order('created_at', { ascending: false });
+
+      if (cleanDigits.length >= 3) {
+        // Se digitou números, busca pelo telefone
+        query = query.ilike('whatsapp', `%${cleanDigits}%`);
+      } else {
+        // Se digitou texto, busca pelo nome
+        query = query.ilike('nome', `%${searchVal}%`);
+      }
+
+      const { data, error } = await query.limit(100);
+
+      if (error) {
+        console.error(error);
+        container.innerHTML = `<p class="text-center text-rose-400 py-8 text-sm">Erro ao pesquisar.</p>`;
+        return;
+      }
+
+      currentLeads = data || [];
+      renderLeads(currentLeads);
     }
 
     function filterLeads() {
-      renderLeads();
+      // Usado pelo input
     }
 
     function addToGoogleCalendar(nome, fone, tipo, dataIso, notas) {
@@ -360,7 +396,7 @@
       const details = encodeURIComponent(`Cliente: ${nome}\nWhatsApp: ${fone}\nObservações: ${notas || 'N/I'}`);
       
       let startDate = new Date();
-      let endDate = new Date(startDate.getTime() + 60*60*1000); // 1 hora de duração padrão
+      let endDate = new Date(startDate.getTime() + 60*60*1000);
 
       if (dataIso) {
         startDate = new Date(dataIso);
@@ -374,24 +410,13 @@
       window.open(url, '_blank');
     }
 
-    function renderLeads() {
-      const searchRaw = document.getElementById('searchInput').value.toLowerCase().trim();
-      const searchDigits = searchRaw.replace(/\D/g, ''); // Apenas números para buscar sequência no celular
+    function renderLeads(leads) {
       const container = document.getElementById('leadsList');
       container.innerHTML = '';
 
       const now = new Date().toISOString().slice(0, 10);
 
-      const filtered = allLeads.filter(l => {
-        const leadNome = (l.nome || '').toLowerCase();
-        const leadFoneDigits = (l.whatsapp || '').replace(/\D/g, '');
-        
-        const matchName = searchRaw === '' || leadNome.includes(searchRaw);
-        const matchPhone = searchDigits !== '' && leadFoneDigits.includes(searchDigits);
-        const matchesSearch = matchName || matchPhone || (searchRaw !== '' && (l.whatsapp || '').toLowerCase().includes(searchRaw));
-        
-        if (!matchesSearch) return false;
-
+      const filtered = leads.filter(l => {
         const leadStatus = l.status || 'Novo';
 
         if (currentFilter === 'hoje') {
@@ -408,9 +433,7 @@
         return;
       }
 
-      const displayList = filtered.slice(0, 100);
-
-      displayList.forEach(lead => {
+      filtered.forEach(lead => {
         const card = document.createElement('div');
         card.className = 'bg-slate-800 border border-slate-700/80 rounded-xl p-4 space-y-3 shadow-md';
 
@@ -479,13 +502,6 @@
         `;
         container.appendChild(card);
       });
-
-      if (filtered.length > 100) {
-        const infoMore = document.createElement('p');
-        infoMore.className = 'text-center text-xs text-slate-500 py-2';
-        infoMore.innerText = `Mostrando os primeiros 100 de ${filtered.length} resultados encontrados. Use a busca para filtrar outros.`;
-        container.appendChild(infoMore);
-      }
     }
 
     async function importFile(event) {
@@ -533,7 +549,8 @@
           let importedCount = 0;
           let duplicatedCount = 0;
 
-          const existingPhones = new Set(allLeads.map(l => (l.whatsapp || '').replace(/\D/g, '')));
+          const { data: dbCheck } = await supabaseClient.from('leads').select('whatsapp');
+          const existingPhones = new Set((dbCheck || []).map(l => (l.whatsapp || '').replace(/\D/g, '')));
 
           let allParsedLeads = [];
           for (let i = 1; i < rows.length; i++) {
@@ -625,7 +642,7 @@
 
           alert(`Importação concluída com sucesso!\n✅ Novos leads importados: ${importedCount}\n⚠️ Duplicados ignorados: ${duplicatedCount}`);
           progressContainer.classList.add('hidden');
-          loadLeads();
+          loadLeadsAndCount();
         } catch (err) {
           alert('Erro ao processar ficheiro: ' + err.message);
           progressContainer.classList.add('hidden');
@@ -639,7 +656,7 @@
     async function deleteLead(id) {
       if (!confirm('Deseja excluir este lead?')) return;
       const { error } = await supabaseClient.from('leads').delete().eq('id', id);
-      if (!error) loadLeads();
+      if (!error) loadLeadsAndCount();
     }
 
     window.onload = initSupabase;

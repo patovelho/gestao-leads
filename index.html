@@ -3,365 +3,409 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestão de Leads</title>
-  <!-- Tailwind CSS CDN -->
+  <title>Gestão de Leads Imobiliários</title>
+  <link rel="manifest" href="data:application/json,{\"name\":\"Gestão de Leads\",\"short_name\":\"Leads\",\"start_url\":\".\",\"display\":\"standalone\",\"background_color\":\"#0f172a\",\"theme_color\":\"#2563eb\"}">
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Supabase JS CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    body { background-color: #f1f5f9; font-family: system-ui, -apple-system, sans-serif; }
-  </style>
 </head>
-<body class="pb-20">
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-10">
 
   <!-- Header -->
-  <header class="bg-slate-900 text-white p-4 sticky top-0 z-50 shadow-md flex justify-between items-center">
-    <h1 class="text-xl font-bold flex items-center gap-2">
-      <i class="fa-solid fa-users text-blue-400"></i> Gestão de Leads
-    </h1>
-    <button onclick="abrirModalConfig()" class="text-slate-300 hover:text-white text-sm bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1">
-      <i class="fa-solid fa-gear"></i> Config
-    </button>
-  </header>
-
-  <main class="max-w-md mx-auto p-4 space-y-4">
-    
-    <!-- Aviso de Configuração Supabase -->
-    <div id="alerta-config" class="hidden bg-amber-50 border-l-4 border-amber-500 p-4 rounded text-amber-800 text-sm">
-      <strong>Atenção:</strong> Configure as chaves de API do Supabase no botão de engrenagem no topo para sincronizar seus dados.
-    </div>
-
-    <!-- Botão Adicionar & Filtros -->
-    <div class="flex items-center justify-between gap-2">
-      <button onclick="abrirModalLead()" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-xl shadow flex items-center gap-2 text-sm w-full justify-center">
-        <i class="fa-solid fa-plus"></i> Novo Lead
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-10 shadow-lg">
+    <div class="max-w-4xl mx-auto flex justify-between items-center">
+      <h1 class="text-xl font-bold text-blue-400 flex items-center gap-2">
+        🏠 Gestão de Leads
+      </h1>
+      <button onclick="toggleModal('configModal')" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-1">
+        ⚙️ Config
       </button>
     </div>
+  </header>
 
-    <!-- Filtro de Status -->
-    <div class="overflow-x-auto py-1 flex gap-2 no-scrollbar text-xs">
-      <button onclick="filtrarStatus('Todos')" class="btn-filtro bg-slate-800 text-white px-3 py-1.5 rounded-full whitespace-nowrap" data-status="Todos">Todos</button>
-      <button onclick="filtrarStatus('Novo Lead')" class="btn-filtro bg-white text-slate-700 px-3 py-1.5 rounded-full whitespace-nowrap shadow-sm" data-status="Novo Lead">Novos</button>
-      <button onclick="filtrarStatus('Em Contato')" class="btn-filtro bg-white text-slate-700 px-3 py-1.5 rounded-full whitespace-nowrap shadow-sm" data-status="Em Contato">Em Contato</button>
-      <button onclick="filtrarStatus('Visita Agendada')" class="btn-filtro bg-white text-slate-700 px-3 py-1.5 rounded-full whitespace-nowrap shadow-sm" data-status="Visita Agendada">Visitas</button>
-      <button onclick="filtrarStatus('Proposta')" class="btn-filtro bg-white text-slate-700 px-3 py-1.5 rounded-full whitespace-nowrap shadow-sm" data-status="Proposta">Propostas</button>
-      <button onclick="filtrarStatus('Fechado')" class="btn-filtro bg-white text-slate-700 px-3 py-1.5 rounded-full whitespace-nowrap shadow-sm" data-status="Fechado">Fechados</button>
+  <main class="max-w-4xl mx-auto p-4 space-y-4">
+
+    <!-- Top Action & Search -->
+    <div class="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+      <button onclick="openLeadModal()" class="bg-blue-600 hover:bg-blue-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition">
+        ➕ Novo Lead Imobiliário
+      </button>
+      
+      <input type="text" id="searchInput" oninput="filterLeads()" placeholder="Buscar por nome, fone ou imóvel..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500">
     </div>
 
-    <!-- Lista de Leads -->
-    <div id="lista-leads" class="space-y-3">
-      <div class="text-center py-8 text-slate-400">Carregando leads...</div>
+    <!-- Status & Follow-up Tabs -->
+    <div class="flex gap-2 overflow-x-auto pb-2 border-b border-slate-800 text-xs font-medium no-scrollbar">
+      <button onclick="setFilter('todos')" id="tab-todos" class="tab-btn px-3 py-1.5 rounded-lg bg-blue-600 text-white whitespace-nowrap">Todos</button>
+      <button onclick="setFilter('hoje')" id="tab-hoje" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">🔔 Follow-up Hoje</button>
+      <button onclick="setFilter('Novo')" id="tab-Novo" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">Novos</button>
+      <button onclick="setFilter('Em Contato')" id="tab-Em Contato" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">Em Contato</button>
+      <button onclick="setFilter('Visita Agendada')" id="tab-Visita Agendada" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">Visitas</button>
+      <button onclick="setFilter('Proposta')" id="tab-Proposta" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">Propostas</button>
+      <button onclick="setFilter('Fechado')" id="tab-Fechado" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">Fechados</button>
     </div>
 
+    <!-- Lead List -->
+    <div id="leadsList" class="space-y-3">
+      <p class="text-center text-slate-500 py-8 text-sm">Carregando leads...</p>
+    </div>
   </main>
 
-  <!-- Modal Novo / Editar Lead -->
-  <div id="modal-lead" class="fixed inset-0 bg-black/60 hidden z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-    <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
-      <div class="flex justify-between items-center border-b pb-3">
-        <h3 id="modal-titulo" class="font-bold text-slate-800 text-lg">Cadastrar Lead</h3>
-        <button onclick="fecharModalLead()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
+  <!-- Modal Lead Form -->
+  <div id="leadModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 id="modalTitle" class="font-bold text-lg text-slate-100">Novo Lead</h3>
+        <button onclick="toggleModal('leadModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
       </div>
 
-      <form id="form-lead" onsubmit="salvarLead(event)" class="space-y-3 text-sm">
-        <input type="hidden" id="lead-id">
+      <form id="leadForm" onsubmit="saveLead(event)" class="space-y-3 text-sm">
+        <input type="hidden" id="leadId">
         
         <div>
-          <label class="block font-medium text-slate-700 mb-1">Nome do Cliente *</label>
-          <input type="text" id="lead-nome" required class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
+          <label class="block text-slate-400 mb-1">Nome Completo</label>
+          <input type="text" id="nome" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
         </div>
 
-        <div>
-          <label class="block font-medium text-slate-700 mb-1">Telefone / WhatsApp *</label>
-          <input type="tel" id="lead-telefone" placeholder="ex: 22999999999" required class="w-full border rounded-lg p-2.5 focus:ring-2 focus:ring-blue-500 outline-none">
-        </div>
-
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block font-medium text-slate-700 mb-1">Canal de Origem</label>
-            <select id="lead-origem" class="w-full border rounded-lg p-2.5 bg-white outline-none">
-              <option value="Meta Ads">Meta Ads</option>
+            <label class="block text-slate-400 mb-1">WhatsApp / Fone</label>
+            <input type="text" id="whatsapp" required placeholder="22999999999" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Origem do Lead</label>
+            <select id="origem" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+              <option value="Meta Ads">Meta Ads (FB/Insta)</option>
               <option value="Google Ads">Google Ads</option>
-              <option value="OLX">OLX</option>
+              <option value="OLX">Portal OLX</option>
               <option value="Indicação">Indicação</option>
-              <option value="Captação">Captação</option>
+              <option value="Placa">Placa no Imóvel</option>
               <option value="Outro">Outro</option>
             </select>
           </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block font-medium text-slate-700 mb-1">Status Inicial</label>
-            <select id="lead-status" class="w-full border rounded-lg p-2.5 bg-white outline-none">
-              <option value="Novo Lead">Novo Lead</option>
-              <option value="Em Contato">Em Contato</option>
-              <option value="Visita Agendada">Visita Agendada</option>
-              <option value="Proposta">Proposta</option>
-              <option value="Fechado">Fechado</option>
-              <option value="Perdido">Perdido</option>
+            <label class="block text-slate-400 mb-1">Tipo de Imóvel</label>
+            <select id="tipo_imovel" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+              <option value="Casa">Casa</option>
+              <option value="Terreno">Terreno</option>
+              <option value="Apartamento">Apartamento</option>
+              <option value="Comercial">Comercial</option>
+              <option value="Cobertura">Cobertura</option>
             </select>
           </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Orçamento Max (R$)</label>
+            <input type="number" id="orcamento" placeholder="Ex: 450000" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+          </div>
         </div>
 
-        <div>
-          <label class="block font-medium text-slate-700 mb-1">Interesse / Imóvel</label>
-          <input type="text" id="lead-interesse" placeholder="ex: Casa em Itaúna ou Terreno em Jaconé" class="w-full border rounded-lg p-2.5 outline-none">
-        </div>
-
-        <div>
-          <label class="block font-medium text-slate-700 mb-1">Anotações / Histórico</label>
-          <textarea id="lead-anotacoes" rows="3" placeholder="Detalhes da conversa, perfil ou preferências..." class="w-full border rounded-lg p-2.5 outline-none"></textarea>
-        </div>
-
-        <div class="flex gap-2 pt-2">
-          <button type="button" onclick="fecharModalLead()" class="w-1/2 border border-slate-300 text-slate-700 py-2.5 rounded-xl font-medium">Cancelar</button>
-          <button type="submit" class="w-1/2 bg-blue-600 text-white py-2.5 rounded-xl font-medium shadow hover:bg-blue-700">Salvar Lead</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Modal Configuração Supabase -->
-  <div id="modal-config" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-md rounded-2xl p-5 space-y-4">
-      <div class="flex justify-between items-center border-b pb-3">
-        <h3 class="font-bold text-slate-800 text-lg">Configurar Supabase</h3>
-        <button onclick="fecharModalConfig()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-xl"></i></button>
-      </div>
-      <form onsubmit="salvarConfigSupabase(event)" class="space-y-3 text-sm">
-        <div>
-          <label class="block font-medium text-slate-700 mb-1">Project URL</label>
-          <input type="text" id="cfg-url" placeholder="https://xxxx.supabase.co" required class="w-full border rounded-lg p-2.5 outline-none">
-        </div>
-        <div>
-          <label class="block font-medium text-slate-700 mb-1">API Key (anon key)</label>
-          <input type="text" id="cfg-key" placeholder="eyJhbGciOi..." required class="w-full border rounded-lg p-2.5 outline-none">
-        </div>
-        <button type="submit" class="w-full bg-slate-900 text-white py-2.5 rounded-xl font-medium">Salvar Conexão</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Script Lógica do App -->
-  <script>
-    let supabaseClient = null;
-    let leadsCache = [];
-    let statusFiltroAtual = 'Todos';
-
-    document.addEventListener('DOMContentLoaded', () => {
-      carregarConfigSupabase();
-    });
-
-    function carregarConfigSupabase() {
-      const url = localStorage.getItem('sp_url');
-      const key = localStorage.getItem('sp_key');
-
-      if (url && key) {
-        document.getElementById('alerta-config').classList.add('hidden');
-        document.getElementById('cfg-url').value = url;
-        document.getElementById('cfg-key').value = key;
-        supabaseClient = supabase.createClient(url, key);
-        buscarLeads();
-      } else {
-        document.getElementById('alerta-config').classList.remove('hidden');
-        document.getElementById('lista-leads').innerHTML = `
-          <div class="bg-white p-6 rounded-2xl text-center border space-y-2">
-            <i class="fa-solid fa-plug-circle-exclamation text-amber-500 text-3xl"></i>
-            <p class="text-sm font-medium text-slate-700">Conexão não configurada</p>
-            <p class="text-xs text-slate-500">Clique em Config no topo para inserir sua URL e Key do Supabase.</p>
-          </div>`;
-      }
-    }
-
-    function salvarConfigSupabase(e) {
-      e.preventDefault();
-      const url = document.getElementById('cfg-url').value.trim();
-      const key = document.getElementById('cfg-key').value.trim();
-      localStorage.setItem('sp_url', url);
-      localStorage.setItem('sp_key', key);
-      fecharModalConfig();
-      carregarConfigSupabase();
-    }
-
-    async function buscarLeads() {
-      if (!supabaseClient) return;
-      
-      const { data, error } = await supabaseClient
-        .from('leads')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        alert('Erro ao buscar leads: ' + error.message);
-        return;
-      }
-
-      leadsCache = data || [];
-      renderizarLeads();
-    }
-
-    function renderizarLeads() {
-      const listaContainer = document.getElementById('lista-leads');
-      
-      const leadsFiltrados = statusFiltroAtual === 'Todos' 
-        ? leadsCache 
-        : leadsCache.filter(l => l.status === statusFiltroAtual);
-
-      if (leadsFiltrados.length === 0) {
-        listaContainer.innerHTML = `
-          <div class="bg-white p-6 rounded-xl text-center border text-slate-400 text-sm">
-            Nenhum lead encontrado neste filtro.
-          </div>`;
-        return;
-      }
-
-      listaContainer.innerHTML = leadsFiltrados.map(lead => {
-        const telFormatado = lead.telefone.replace(/\D/g, '');
-        const statusCor = getStatusColor(lead.status);
-
-        return `
-          <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 space-y-3">
-            <div class="flex justify-between items-start">
-              <div>
-                <h4 class="font-bold text-slate-800 text-base flex items-center gap-2">
-                  ${escapeHtml(lead.nome)}
-                </h4>
-                <span class="inline-block mt-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${statusCor}">
-                  ${lead.status}
-                </span>
-              </div>
-              <span class="text-[11px] text-slate-400 bg-slate-100 px-2 py-1 rounded-md font-medium">
-                ${lead.origem || 'Direto'}
-              </span>
+        <!-- Condições de Pagamento -->
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60 space-y-3">
+          <label class="block text-slate-300 font-medium">Condição de Pagamento</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <select id="forma_pagamento" onchange="toggleEntradaDiv()" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+                <option value="a_vista">À Vista</option>
+                <option value="financiamento">Financiamento</option>
+              </select>
             </div>
-
-            ${lead.interesse ? `
-              <p class="text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                <i class="fa-solid fa-house-circle-check text-blue-500 mr-1"></i> ${escapeHtml(lead.interesse)}
-              </p>
-            ` : ''}
-
-            ${lead.anotacoes ? `
-              <p class="text-xs text-slate-500 line-clamp-2">
-                <i class="fa-regular fa-comment mr-1"></i> ${escapeHtml(lead.anotacoes)}
-              </p>
-            ` : ''}
-
-            <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-              <!-- Botão WhatsApp Direct -->
-              <a href="https://wa.me/55${telFormatado}" target="_blank" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-2 rounded-lg font-medium flex items-center gap-1.5 shadow-sm">
-                <i class="fa-brands fa-whatsapp text-sm"></i> WhatsApp
-              </a>
-
-              <div class="flex items-center gap-2">
-                <button onclick="editarLead('${lead.id}')" class="text-slate-600 hover:text-slate-900 bg-slate-100 p-2 rounded-lg">
-                  <i class="fa-solid fa-pen"></i>
-                </button>
-                <button onclick="excluirLead('${lead.id}')" class="text-red-500 hover:text-red-700 bg-red-50 p-2 rounded-lg">
-                  <i class="fa-solid fa-trash"></i>
-                </button>
-              </div>
+            <div id="entradaDiv" class="hidden">
+              <input type="number" id="valor_entrada" placeholder="Valor Entrada (R$)" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
             </div>
           </div>
-        `;
-      }).join('');
-    }
+        </div>
 
-    function getStatusColor(status) {
-      switch (status) {
-        case 'Novo Lead': return 'bg-blue-100 text-blue-800';
-        case 'Em Contato': return 'bg-amber-100 text-amber-800';
-        case 'Visita Agendada': return 'bg-purple-100 text-purple-800';
-        case 'Proposta': return 'bg-indigo-100 text-indigo-800';
-        case 'Fechado': return 'bg-emerald-100 text-emerald-800';
-        case 'Perdido': return 'bg-rose-100 text-rose-800';
-        default: return 'bg-slate-100 text-slate-800';
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Status do Funil</label>
+            <select id="status" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+              <option value="Novo">Novo Lead</option>
+              <option value="Em Contato">Em Contato</option>
+              <option value="Visita Agendada">Visita Agendada</option>
+              <option value="Proposta">Proposta Apresentada</option>
+              <option value="Fechado">Venda Fechada</option>
+              <option value="Perdido">Perdido / Inativo</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Próximo Follow-up</label>
+            <input type="datetime-local" id="proximo_follow_up" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Notas do Follow-up / Observações</label>
+          <textarea id="notas_follow_up" rows="3" placeholder="Detalhes da conversa, preferências do cliente, etc..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition">
+          Salvar Lead
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Config Supabase -->
+  <div id="configModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-slate-100">Configuração Supabase</h3>
+        <button onclick="toggleModal('configModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-slate-400 mb-1">Project URL</label>
+          <input type="text" id="cfgUrl" placeholder="https://xxx.supabase.co" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">API Key (Publishable)</label>
+          <input type="password" id="cfgKey" placeholder="sb_publishable_..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <button onclick="saveConfig()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl">
+          Salvar Conexão
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let supabaseClient = null;
+    let allLeads = [];
+    let currentFilter = 'todos';
+
+    function initSupabase() {
+      const url = localStorage.getItem('sp_url');
+      const key = localStorage.getItem('sp_key');
+      if (url && key) {
+        supabaseClient = supabase.createClient(url, key);
+        document.getElementById('cfgUrl').value = url;
+        document.getElementById('cfgKey').value = key;
+        loadLeads();
+      } else {
+        toggleModal('configModal');
       }
     }
 
-    function filtrarStatus(status) {
-      statusFiltroAtual = status;
-      document.querySelectorAll('.btn-filtro').forEach(btn => {
-        if (btn.dataset.status === status) {
-          btn.className = 'btn-filtro bg-slate-800 text-white px-3 py-1.5 rounded-full whitespace-nowrap';
-        } else {
-          btn.className = 'btn-filtro bg-white text-slate-700 px-3 py-1.5 rounded-full whitespace-nowrap shadow-sm';
+    function saveConfig() {
+      const url = document.getElementById('cfgUrl').value.trim();
+      const key = document.getElementById('cfgKey').value.trim();
+      if (url && key) {
+        localStorage.setItem('sp_url', url);
+        localStorage.setItem('sp_key', key);
+        supabaseClient = supabase.createClient(url, key);
+        toggleModal('configModal');
+        loadLeads();
+      }
+    }
+
+    function toggleModal(id) {
+      const m = document.getElementById(id);
+      m.classList.toggle('hidden');
+      m.classList.toggle('flex');
+    }
+
+    function toggleEntradaDiv() {
+      const forma = document.getElementById('forma_pagamento').value;
+      const div = document.getElementById('entradaDiv');
+      if (forma === 'financiamento') {
+        div.classList.remove('hidden');
+      } else {
+        div.classList.add('hidden');
+        document.getElementById('valor_entrada').value = '';
+      }
+    }
+
+    function openLeadModal(lead = null) {
+      document.getElementById('leadForm').reset();
+      document.getElementById('leadId').value = '';
+      document.getElementById('modalTitle').innerText = lead ? 'Editar Lead' : 'Novo Lead';
+      toggleEntradaDiv();
+
+      if (lead) {
+        document.getElementById('leadId').value = lead.id;
+        document.getElementById('nome').value = lead.nome || '';
+        document.getElementById('whatsapp').value = lead.whatsapp || '';
+        document.getElementById('origem').value = lead.origem || 'Meta Ads';
+        document.getElementById('tipo_imovel').value = lead.tipo_imovel || 'Casa';
+        document.getElementById('orcamento').value = lead.orcamento || '';
+        document.getElementById('forma_pagamento').value = lead.forma_pagamento || 'a_vista';
+        document.getElementById('valor_entrada').value = lead.valor_entrada || '';
+        document.getElementById('status').value = lead.status || 'Novo';
+        document.getElementById('notas_follow_up').value = lead.notas_follow_up || '';
+        
+        if (lead.proximo_follow_up) {
+          const d = new Date(lead.proximo_follow_up);
+          d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+          document.getElementById('proximo_follow_up').value = d.toISOString().slice(0, 16);
         }
-      });
-      renderizarLeads();
+        toggleEntradaDiv();
+      }
+      toggleModal('leadModal');
     }
 
-    function abrirModalLead() {
-      document.getElementById('form-lead').reset();
-      document.getElementById('lead-id').value = '';
-      document.getElementById('modal-titulo').innerText = 'Cadastrar Lead';
-      document.getElementById('modal-lead').classList.remove('hidden');
-    }
-
-    function fecharModalLead() {
-      document.getElementById('modal-lead').classList.add('hidden');
-    }
-
-    function abrirModalConfig() {
-      document.getElementById('modal-config').classList.remove('hidden');
-    }
-
-    function fecharModalConfig() {
-      document.getElementById('modal-config').classList.add('hidden');
-    }
-
-    async function salvarLead(e) {
+    async function saveLead(e) {
       e.preventDefault();
       if (!supabaseClient) return alert('Configure o Supabase primeiro.');
 
-      const id = document.getElementById('lead-id').value;
+      const id = document.getElementById('leadId').value;
+      const forma = document.getElementById('forma_pagamento').value;
+      const valEntrada = document.getElementById('valor_entrada').value;
+
       const payload = {
-        nome: document.getElementById('lead-nome').value.trim(),
-        telefone: document.getElementById('lead-telefone').value.trim(),
-        origem: document.getElementById('lead-origem').value,
-        status: document.getElementById('lead-status').value,
-        interesse: document.getElementById('lead-interesse').value.trim(),
-        anotacoes: document.getElementById('lead-anotacoes').value.trim()
+        nome: document.getElementById('nome').value,
+        whatsapp: document.getElementById('whatsapp').value,
+        origem: document.getElementById('origem').value,
+        tipo_imovel: document.getElementById('tipo_imovel').value,
+        orcamento: document.getElementById('orcamento').value ? parseFloat(document.getElementById('orcamento').value) : null,
+        forma_pagamento: forma,
+        possui_entrada: forma === 'financiamento' && parseFloat(valEntrada) > 0,
+        valor_entrada: valEntrada ? parseFloat(valEntrada) : 0,
+        status: document.getElementById('status').value,
+        proximo_follow_up: document.getElementById('proximo_follow_up').value || null,
+        notas_follow_up: document.getElementById('notas_follow_up').value
       };
 
+      let error;
       if (id) {
-        const { error } = await supabaseClient.from('leads').update(payload).eq('id', id);
-        if (error) return alert('Erro ao atualizar: ' + error.message);
+        ({ error } = await supabaseClient.from('leads').update(payload).eq('id', id));
       } else {
-        const { error } = await supabaseClient.from('leads').insert([payload]);
-        if (error) return alert('Erro ao inserir: ' + error.message);
+        ({ error } = await supabaseClient.from('leads').insert([payload]));
       }
 
-      fecharModalLead();
-      buscarLeads();
+      if (error) {
+        alert('Erro ao salvar: ' + error.message);
+      } else {
+        toggleModal('leadModal');
+        loadLeads();
+      }
     }
 
-    function editarLead(id) {
-      const lead = leadsCache.find(l => l.id === id);
-      if (!lead) return;
-
-      document.getElementById('lead-id').value = lead.id;
-      document.getElementById('lead-nome').value = lead.nome;
-      document.getElementById('lead-telefone').value = lead.telefone;
-      document.getElementById('lead-origem').value = lead.origem;
-      document.getElementById('lead-status').value = lead.status;
-      document.getElementById('lead-interesse').value = lead.interesse || '';
-      document.getElementById('lead-anotacoes').value = lead.anotacoes || '';
-
-      document.getElementById('modal-titulo').innerText = 'Editar Lead';
-      document.getElementById('modal-lead').classList.remove('hidden');
+    async function loadLeads() {
+      if (!supabaseClient) return;
+      const { data, error } = await supabaseClient.from('leads').select('*').order('created_at', { ascending: false });
+      if (error) {
+        console.error(error);
+        return;
+      }
+      allLeads = data || [];
+      renderLeads();
     }
 
-    async function excluirLead(id) {
-      if (!confirm('Deseja realmente remover este lead?')) return;
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-slate-800', 'text-slate-400');
+      });
+      const activeBtn = document.getElementById(`tab-${filter}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-slate-800', 'text-slate-400');
+        activeBtn.classList.add('bg-blue-600', 'text-white');
+      }
+      renderLeads();
+    }
+
+    function filterLeads() {
+      renderLeads();
+    }
+
+    function renderLeads() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const container = document.getElementById('leadsList');
+      container.innerHTML = '';
+
+      const now = new Date().toISOString().slice(0, 10);
+
+      const filtered = allLeads.filter(l => {
+        const matchesSearch = (l.nome || '').toLowerCase().includes(search) || 
+                              (l.whatsapp || '').includes(search) ||
+                              (l.tipo_imovel || '').toLowerCase().includes(search);
+        
+        if (!matchesSearch) return false;
+
+        if (currentFilter === 'hoje') {
+          return l.proximo_follow_up && l.proximo_follow_up.slice(0, 10) <= now;
+        }
+        if (currentFilter !== 'todos') {
+          return l.status === currentFilter;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-center text-slate-500 py-8 text-sm">Nenhum lead encontrado.</p>`;
+        return;
+      }
+
+      filtered.forEach(lead => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-800 border border-slate-700/80 rounded-xl p-4 space-y-3 shadow-md';
+
+        const cleanPhone = (lead.whatsapp || '').replace(/\D/g, '');
+        const waUrl = cleanPhone ? `https://wa.me/55${cleanPhone}` : '#';
+
+        const fmtMoeda = v => v ? `R$ ${Number(v).toLocaleString('pt-BR')}` : 'Não inf.';
+        
+        let pagBadge = lead.forma_pagamento === 'financiamento' 
+          ? `<span class="bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded text-[11px] border border-purple-700/50">Financiamento ${lead.valor_entrada ? '(Entrada: ' + fmtMoeda(lead.valor_entrada) + ')' : ''}</span>`
+          : `<span class="bg-emerald-900/40 text-emerald-300 px-2 py-0.5 rounded text-[11px] border border-emerald-700/50">À Vista</span>`;
+
+        let followUpBadge = '';
+        if (lead.proximo_follow_up) {
+          const dt = new Date(lead.proximo_follow_up);
+          const isPast = dt < new Date();
+          followUpBadge = `
+            <div class="text-xs ${isPast ? 'text-rose-400 font-semibold' : 'text-amber-300'} flex items-center gap-1 bg-slate-900/50 px-2 py-1 rounded-lg border border-slate-700">
+              ⏰ Follow-up: ${dt.toLocaleDateString('pt-BR')} às ${dt.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
+            </div>`;
+        }
+
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <h4 class="font-bold text-base text-slate-100">${lead.nome}</h4>
+              <p class="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                <span>📍 ${lead.tipo_imovel || 'Imóvel'}</span> • 
+                <span>💰 ${fmtMoeda(lead.orcamento)}</span>
+              </p>
+            </div>
+            <span class="bg-blue-900/40 text-blue-300 border border-blue-700/50 text-xs px-2.5 py-1 rounded-full font-medium">
+              ${lead.status || 'Novo'}
+            </span>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5 items-center">
+            <span class="bg-slate-700 text-slate-300 text-[11px] px-2 py-0.5 rounded">Origem: ${lead.origem || 'N/I'}</span>
+            ${pagBadge}
+          </div>
+
+          ${lead.notas_follow_up ? `<p class="text-xs text-slate-300 bg-slate-900/70 p-2.5 rounded-lg border border-slate-700/50">💬 ${lead.notas_follow_up}</p>` : ''}
+          
+          ${followUpBadge}
+
+          <div class="flex justify-between items-center pt-2 border-t border-slate-700/60 text-xs">
+            <a href="${waUrl}" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+              💬 WhatsApp
+            </a>
+            <div class="flex gap-2">
+              <button onclick='openLeadModal(${JSON.stringify(lead)})' class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg">✏️ Editar / Follow-up</button>
+              <button onclick="deleteLead('${lead.id}')" class="text-rose-400 hover:bg-rose-950/40 p-1.5 rounded-lg">🗑️</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function deleteLead(id) {
+      if (!confirm('Deseja excluir este lead?')) return;
       const { error } = await supabaseClient.from('leads').delete().eq('id', id);
-      if (error) return alert('Erro ao excluir: ' + error.message);
-      buscarLeads();
+      if (!error) loadLeads();
     }
 
-    function escapeHtml(text) {
-      return text ? text.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m])) : '';
-    }
+    window.onload = initSupabase;
   </script>
 </body>
 </html>

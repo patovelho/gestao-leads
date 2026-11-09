@@ -36,7 +36,8 @@
         </label>
       </div>
       
-      <input type="text" id="searchInput" oninput="debounceSearch()" value="" placeholder="Buscar por nome ou sequência do celular..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-80">
+      <!-- Usando type="search" e autocomplete="off" para o navegador nunca colar a URL do Supabase aqui -->
+      <input type="search" id="searchInput" autocomplete="off" oninput="debounceSearch()" placeholder="Buscar por nome ou sequência do celular..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-80 text-white">
     </div>
 
     <!-- Barra de Progresso de Importação -->

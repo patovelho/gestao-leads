@@ -300,14 +300,40 @@
       }
     }
 
+    // Carregar TODOS os leads sem o limite padrão de 1000 do Supabase (paginado em blocos de 1000)
     async function loadLeads() {
       if (!supabaseClient) return;
-      const { data, error } = await supabaseClient.from('leads').select('*').order('created_at', { ascending: false });
-      if (error) {
-        console.error(error);
-        return;
+      
+      let allData = [];
+      let step = 1000;
+      let from = 0;
+      let keepFetching = true;
+
+      while (keepFetching) {
+        const { data, error } = await supabaseClient
+          .from('leads')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(from, from + step - 1);
+
+        if (error) {
+          console.error(error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allData = allData.concat(data);
+          if (data.length < step) {
+            keepFetching = false;
+          } else {
+            from += step;
+          }
+        } else {
+          keepFetching = false;
+        }
       }
-      allLeads = data || [];
+
+      allLeads = allData;
       document.getElementById('totalLeadsBadge').innerText = `${allLeads.length} leads`;
       renderLeads();
     }
@@ -358,7 +384,10 @@
         return;
       }
 
-      filtered.forEach(lead => {
+      // Renderizar os primeiros 100 leads filtrados para manter o navegador leve e rápido
+      const displayList = filtered.slice(0, 100);
+
+      displayList.forEach(lead => {
         const card = document.createElement('div');
         card.className = 'bg-slate-800 border border-slate-700/80 rounded-xl p-4 space-y-3 shadow-md';
 
@@ -422,6 +451,13 @@
         `;
         container.appendChild(card);
       });
+
+      if (filtered.length > 100) {
+        const infoMore = document.createElement('p');
+        infoMore.className = 'text-center text-xs text-slate-500 py-2';
+        infoMore.innerText = `Mostrando os primeiros 100 de ${filtered.length} resultados encontrados. Use a busca para filtrar outros.`;
+        container.appendChild(infoMore);
+      }
     }
 
     async function importFile(event) {
@@ -469,9 +505,7 @@
           let importedCount = 0;
           let duplicatedCount = 0;
 
-          // Buscar telefones já existentes no Supabase para evitar duplicidade
-          const { data: currentDbLeads } = await supabaseClient.from('leads').select('whatsapp');
-          const existingPhones = new Set((currentDbLeads || []).map(l => (l.whatsapp || '').replace(/\D/g, '')));
+          const existingPhones = new Set(allLeads.map(l => (l.whatsapp || '').replace(/\D/g, '')));
 
           let allParsedLeads = [];
           for (let i = 1; i < rows.length; i++) {
@@ -544,7 +578,6 @@
             return;
           }
 
-          // Enviar em lotes de 50 com pausa de segurança entre eles
           const batchSize = 50;
           for (let i = 0; i < totalToImport; i += batchSize) {
             const batch = allParsedLeads.slice(i, i + batchSize);
@@ -559,8 +592,7 @@
             progressPercent.innerText = percent + '%';
             progressText.innerText = `A importar lote: ${importedCount} de ${totalToImport} leads...`;
 
-            // Pausa de 1 segundo entre os lotes para não sobrecarregar o servidor e garantir estabilidade total
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise(r => setTimeout(r, 500));
           }
 
           alert(`Importação concluída com sucesso!\n✅ Novos leads importados: ${importedCount}\n⚠️ Duplicados ignorados: ${duplicatedCount}`);

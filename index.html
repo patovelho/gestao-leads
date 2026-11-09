@@ -26,9 +26,15 @@
 
     <!-- Top Action & Search -->
     <div class="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
-      <button onclick="openLeadModal()" class="bg-blue-600 hover:bg-blue-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition">
-        ➕ Novo Lead Imobiliário
-      </button>
+      <div class="flex gap-2">
+        <button onclick="openLeadModal()" class="bg-blue-600 hover:bg-blue-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition">
+          ➕ Novo Lead
+        </button>
+        <label class="bg-emerald-600 hover:bg-emerald-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition cursor-pointer">
+          📥 Importar Arquivo
+          <input type="file" id="fileImport" accept=".xls,.xlsx,.html,.htm,.csv" class="hidden" onchange="importFile(event)">
+        </label>
+      </div>
       
       <input type="text" id="searchInput" oninput="filterLeads()" placeholder="Buscar por nome, fone ou imóvel..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500">
     </div>
@@ -77,6 +83,8 @@
               <option value="Meta Ads">Meta Ads (FB/Insta)</option>
               <option value="Google Ads">Google Ads</option>
               <option value="OLX">Portal OLX</option>
+              <option value="Chaves na Mão">Chaves na Mão</option>
+              <option value="ImóvelWeb">ImóvelWeb</option>
               <option value="Indicação">Indicação</option>
               <option value="Placa">Placa no Imóvel</option>
               <option value="Outro">Outro</option>
@@ -101,7 +109,6 @@
           </div>
         </div>
 
-        <!-- Condições de Pagamento -->
         <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60 space-y-3">
           <label class="block text-slate-300 font-medium">Condição de Pagamento</label>
           <div class="grid grid-cols-2 gap-3">
@@ -136,7 +143,7 @@
         </div>
 
         <div>
-          <label class="block text-slate-400 mb-1">Notas do Follow-up / Observações</label>
+          <label class="block text-slate-400 mb-1">Notas / Observações</label>
           <textarea id="notas_follow_up" rows="3" placeholder="Detalhes da conversa, preferências do cliente, etc..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none"></textarea>
         </div>
 
@@ -379,6 +386,7 @@
           <div class="flex flex-wrap gap-1.5 items-center">
             <span class="bg-slate-700 text-slate-300 text-[11px] px-2 py-0.5 rounded">Origem: ${lead.origem || 'N/I'}</span>
             ${pagBadge}
+            <span class="bg-slate-900 text-slate-400 text-[11px] px-2 py-0.5 rounded">Fone: ${lead.whatsapp || 'N/I'}</span>
           </div>
 
           ${lead.notas_follow_up ? `<p class="text-xs text-slate-300 bg-slate-900/70 p-2.5 rounded-lg border border-slate-700/50">💬 ${lead.notas_follow_up}</p>` : ''}
@@ -397,6 +405,116 @@
         `;
         container.appendChild(card);
       });
+    }
+
+    async function importFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (!supabaseClient) {
+        alert('Configure o Supabase primeiro.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const htmlContent = e.target.result;
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlContent, 'text/html');
+          const rows = doc.querySelectorAll('tr');
+
+          if (rows.length <= 1) {
+            alert('Nenhum dado encontrado no arquivo.');
+            return;
+          }
+
+          // Descobrir índices das colunas no cabeçalho
+          const headers = Array.from(rows[0].querySelectorAll('th, td')).map(th => th.textContent.trim().toLowerCase());
+          
+          let idxNome = headers.findIndex(h => h.includes('nome'));
+          let idxFone = headers.findIndex(h => h.includes('telefone') || h.includes('whats') || h.includes('fone'));
+          let idxAssunto = headers.findIndex(h => h.includes('assunto') || h.includes('mensagem') || h.includes('imóvel'));
+
+          // Fallback padrão se não achar exato
+          if (idxNome === -1) idxNome = 6;
+          if (idxFone === -1) idxFone = 7;
+
+          let importedCount = 0;
+          let duplicatedCount = 0;
+
+          // Carregar telefones atuais para checagem rápida
+          const existingPhones = new Set(allLeads.map(l => (l.whatsapp || '').replace(/\D/g, '')));
+
+          for (let i = 1; i < rows.length; i++) {
+            const cols = rows[i].querySelectorAll('td');
+            if (cols.length < 3) continue;
+
+            const nome = cols[idxNome] ? cols[idxNome].textContent.trim() : '';
+            const foneRaw = cols[idxFone] ? cols[idxFone].textContent.trim() : '';
+            const cleanFone = foneRaw.replace(/\D/g, '');
+
+            if (!nome || nome === 'NaN') continue;
+
+            // Verificar duplicidade por WhatsApp / Telefone
+            if (cleanFone && existingPhones.has(cleanFone)) {
+              duplicatedCount++;
+              continue;
+            }
+
+            // Descobrir origem aproximada pelo texto ou padrão
+            let origem = 'ImobiBrasil';
+            let msgFull = '';
+            for (let c = 0; c < cols.length; c++) {
+              msgFull += ' ' + cols[c].textContent;
+            }
+            if (msgFull.toLowerCase().includes('olx')) origem = 'Portal OLX';
+            else if (msgFull.toLowerCase().includes('chaves')) origem = 'Chaves na Mão';
+            else if (msgFull.toLowerCase().includes('imóvelweb') || msgFull.toLowerCase().includes('imovelweb')) origem = 'ImóvelWeb';
+
+            // Tentar extrair preço se houver no texto (ex: R$ 450.000,00)
+            let orcamento = null;
+            const precoMatch = msgFull.match(/R\$\s*([\d\.]+,\d{2})/);
+            if (precoMatch) {
+              orcamento = parseFloat(precoMatch[1].replace(/\./g, '').replace(',', '.'));
+            }
+
+            // Tentar descobrir tipo de imóvel
+            let tipo_imovel = 'Casa';
+            const msgLower = msgFull.toLowerCase();
+            if (msgLower.includes('apartamento')) tipo_imovel = 'Apartamento';
+            else if (msgLower.includes('terreno')) tipo_imovel = 'Terreno';
+            else if (msgLower.includes('comercial')) tipo_imovel = 'Comercial';
+            else if (msgLower.includes('cobertura')) tipo_imovel = 'Cobertura';
+
+            const newLead = {
+              nome: nome,
+              whatsapp: foneRaw || 'Não informado',
+              origem: origem,
+              tipo_imovel: tipo_imovel,
+              orcamento: orcamento,
+              forma_pagamento: 'a_vista',
+              possui_entrada: false,
+              valor_entrada: 0,
+              status: 'Novo',
+              notas_follow_up: 'Importado via planilha. ' + (msgFull.length > 120 ? msgFull.substring(0, 120) + '...' : msgFull)
+            };
+
+            const { error } = await supabaseClient.from('leads').insert([newLead]);
+            if (!error) {
+              importedCount++;
+              if (cleanFone) existingPhones.add(cleanFone);
+            }
+          }
+
+          alert(`Importação concluída!\n✅ Novos leads importados: ${importedCount}\n⚠️ Duplicados ignorados: ${duplicatedCount}`);
+          loadLeads();
+        } catch (err) {
+          alert('Erro ao processar arquivo: ' + err.message);
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
     }
 
     async function deleteLead(id) {

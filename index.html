@@ -36,7 +36,6 @@
         </label>
       </div>
       
-      <!-- Usando type="search" e autocomplete="off" para o navegador nunca colar a URL do Supabase aqui -->
       <input type="search" id="searchInput" autocomplete="off" oninput="debounceSearch()" placeholder="Buscar por nome ou sequência do celular..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-80 text-white">
     </div>
 
@@ -313,6 +312,7 @@
         document.getElementById('totalLeadsBadge').innerText = `${count} leads`;
       }
 
+      // Buscar rigorosamente os 100 leads mais recentes ordenados pela data do contato (created_at) decrescente
       const { data, error } = await supabaseClient
         .from('leads')
         .select('*')
@@ -581,10 +581,12 @@
             else if (msgLower.includes('comercial')) tipo_imovel = 'Comercial';
             else if (msgLower.includes('cobertura')) tipo_imovel = 'Cobertura';
 
+            // Extração robusta da data exata do contato vinda da planilha do ImobiBrasil (ex: 09/11/2026 às 19:18:13)
             let parsedDate = new Date();
             if (dataRaw) {
               const parts = dataRaw.match(/(\d{2})\/(\d{2})\/(\d{4}).*?(\d{2}):(\d{2}):(\d{2})/);
               if (parts) {
+                // parts[3]=Ano, parts[2]=Mês, parts[1]=Dia, parts[4]=Hora, parts[5]=Minuto, parts[6]=Segundo
                 parsedDate = new Date(`${parts[3]}-${parts[2]}-${parts[1]}T${parts[4]}:${parts[5]}:${parts[6]}`);
               }
             }

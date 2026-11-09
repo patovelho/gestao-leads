@@ -31,7 +31,7 @@
           ➕ Novo Lead
         </button>
         <label id="importLabel" class="bg-emerald-600 hover:bg-emerald-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition cursor-pointer">
-          📥 Importar Planilha (Blindagem Total)
+          📥 Importar Planilha (Blindagem Perfeita)
           <input type="file" id="fileImport" accept=".xls,.xlsx,.html,.htm,.csv" class="hidden" onchange="importFile(event)">
         </label>
       </div>
@@ -493,7 +493,6 @@
       });
     }
 
-    // Normaliza telefone para comparar apenas os dígitos principais (ignorando 55 do Brasil e formatação)
     function normalizePhone(raw) {
       if (!raw) return '';
       let clean = raw.replace(/\D/g, '');
@@ -503,7 +502,6 @@
       return clean;
     }
 
-    // Normaliza e-mail (tudo minúsculo e sem espaços)
     function normalizeEmail(raw) {
       if (!raw) return '';
       const emailMatch = raw.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/);
@@ -524,7 +522,7 @@
       const progressPercent = document.getElementById('progressPercent');
       
       progressContainer.classList.remove('hidden');
-      progressText.innerText = "A ler a base de dados para blindagem total...";
+      progressText.innerText = "A ler a base de dados para blindagem perfeita...";
       progressBar.style.width = '5%';
       progressPercent.innerText = '5%';
 
@@ -552,9 +550,11 @@
           if (idxNome === -1) idxNome = 6;
           if (idxFone === -1) idxFone = 7;
 
-          // Buscar TODOS os telefones e e-mails já existentes no Supabase em lotes
+          // Buscar TODOS os registos existentes no Supabase em lotes
           let existingPhones = new Set();
           let existingEmails = new Set();
+          let existingNameDate = new Set(); // Para leads sem fone (Nome + Data exata)
+          
           let from = 0;
           let step = 1000;
           let fetching = true;
@@ -562,7 +562,7 @@
           while (fetching) {
             const { data: chunk, error: errChunk } = await supabaseClient
               .from('leads')
-              .select('whatsapp, notas_follow_up')
+              .select('whatsapp, notas_follow_up, nome, created_at')
               .range(from, from + step - 1);
 
             if (errChunk || !chunk || chunk.length === 0) {
@@ -574,6 +574,12 @@
 
                 const normE = normalizeEmail(l.notas_follow_up);
                 if (normE) existingEmails.add(normE);
+
+                // Se não tem fone, guarda chave Nome + Data
+                if ((!l.whatsapp || l.whatsapp.includes('Não informado') || normalizePhone(l.whatsapp) === '') && l.nome && l.created_at) {
+                  const keyND = (l.nome.trim().toLowerCase()) + '_' + l.created_at.slice(0, 19);
+                  existingNameDate.add(keyND);
+                }
               });
               if (chunk.length < step) fetching = false;
               else from += step;
@@ -600,13 +606,24 @@
             const normFone = normalizePhone(foneRaw);
             const normEmail = normalizeEmail(msgFull);
 
+            let parsedDate = new Date();
+            if (dataRaw) {
+              const parts = dataRaw.match(/(\d{2})\/(\d{2})\/(\d{4}).*?(\d{2}):(\d{2}):(\d{2})/);
+              if (parts) {
+                parsedDate = new Date(`${parts[3]}-${parts[2]}-${parts[1]}T${parts[4]}:${parts[5]}:${parts[6]}`);
+              }
+            }
+
+            const keyNameDate = (nome.trim().toLowerCase()) + '_' + parsedDate.toISOString().slice(0, 19);
+
             if (!nome || nome === 'NaN') continue;
 
-            // Blindagem anti-duplicados por TELEFONE ou por E-MAIL
-            const isDuplicatePhone = normFone && existingPhones.has(normFone);
-            const isDuplicateEmail = normEmail && existingEmails.has(normEmail);
+            // Blindagem tripla: Telefone, E-mail ou Nome + Data exata (para quem não tem fone)
+            const isDupPhone = normFone && existingPhones.has(normFone);
+            const isDupEmail = normEmail && existingEmails.has(normEmail);
+            const isDupNameDate = !normFone && existingNameDate.has(keyNameDate);
 
-            if (isDuplicatePhone || isDuplicateEmail) {
+            if (isDupPhone || isDupEmail || isDupNameDate) {
               duplicatedCount++;
               continue;
             }
@@ -629,14 +646,6 @@
             else if (msgLower.includes('comercial')) tipo_imovel = 'Comercial';
             else if (msgLower.includes('cobertura')) tipo_imovel = 'Cobertura';
 
-            let parsedDate = new Date();
-            if (dataRaw) {
-              const parts = dataRaw.match(/(\d{2})\/(\d{2})\/(\d{4}).*?(\d{2}):(\d{2}):(\d{2})/);
-              if (parts) {
-                parsedDate = new Date(`${parts[3]}-${parts[2]}-${parts[1]}T${parts[4]}:${parts[5]}:${parts[6]}`);
-              }
-            }
-
             allParsedLeads.push({
               nome: nome,
               whatsapp: foneRaw || 'Não informado',
@@ -653,11 +662,12 @@
 
             if (normFone) existingPhones.add(normFone);
             if (normEmail) existingEmails.add(normEmail);
+            if (!normFone) existingNameDate.add(keyNameDate);
           }
 
           const totalToImport = allParsedLeads.length;
           if (totalToImport === 0) {
-            alert(`Nenhum lead novo para importar.\n(Todos os registos do ficheiro já existiam na base por telefone ou e-mail - ${duplicatedCount} duplicados evitados).`);
+            alert(`Nenhum lead novo para importar.\n(Todos os registos do ficheiro já existiam na base - ${duplicatedCount} duplicados evitados com sucesso).`);
             progressContainer.classList.add('hidden');
             return;
           }
@@ -679,7 +689,7 @@
             await new Promise(r => setTimeout(r, 300));
           }
 
-          alert(`Importação concluída com sucesso!\n✅ Novos leads adicionados: ${importedCount}\n🛡️ Duplicados bloqueados (por fone ou e-mail): ${duplicatedCount}`);
+          alert(`Importação concluída com sucesso!\n✅ Novos leads adicionados: ${importedCount}\n🛡️ Duplicados bloqueados: ${duplicatedCount}`);
           progressContainer.classList.add('hidden');
           loadLeadsAndCount();
         } catch (err) {

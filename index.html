@@ -36,8 +36,13 @@
         </label>
       </div>
       
-      <!-- Campos de controle anti-autocomplete rigorosos -->
-      <input type="search" id="searchInput" name="search_leads" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="debounceSearch()" placeholder="Buscar por nome ou sequência do celular..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-80 text-white">
+      <!-- Caixa de Busca com Botão Limpar Integrado -->
+      <div class="relative w-full sm:w-80">
+        <input type="search" id="searchInput" name="search_leads" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="debounceSearch()" placeholder="Buscar por nome ou celular..." class="bg-slate-800 border border-slate-700 rounded-xl pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-blue-500 w-full text-white">
+        <button onclick="clearSearch()" title="Limpar busca" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-sm bg-slate-700/60 hover:bg-slate-700 w-6 h-6 rounded-full flex items-center justify-center transition">
+          ✕
+        </button>
+      </div>
     </div>
 
     <!-- Barra de Progresso de Importação -->
@@ -347,6 +352,14 @@
       searchTimeout = setTimeout(() => {
         performSearch();
       }, 400);
+    }
+
+    // Função para limpar a busca instantaneamente
+    function clearSearch() {
+      const input = document.getElementById('searchInput');
+      input.value = '';
+      loadLeadsAndCount();
+      input.focus();
     }
 
     async function performSearch() {

@@ -261,9 +261,9 @@
         document.getElementById('notas_follow_up').value = lead.notas_follow_up || '';
         
         if (lead.proximo_follow_up) {
-          const d = new Date(lead.proximo_follow_up);
-          d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-          document.getElementById('proximo_follow_up').value = d.toISOString().slice(0, 16);
+          // Garante a exibição perfeita da hora local sem subtrair fuso horário
+          const rawDt = lead.proximo_follow_up.replace('Z', '');
+          document.getElementById('proximo_follow_up').value = rawDt.slice(0, 16);
         }
         toggleEntradaDiv();
       }
@@ -277,6 +277,10 @@
       const id = document.getElementById('leadId').value;
       const forma = document.getElementById('forma_pagamento').value;
       const valEntrada = document.getElementById('valor_entrada').value;
+      const rawFollowUp = document.getElementById('proximo_follow_up').value;
+
+      // Mantém a hora exatamente igual à digitada sem conversão de fuso horário
+      const formattedFollowUp = rawFollowUp ? `${rawFollowUp}:00` : null;
 
       const payload = {
         nome: document.getElementById('nome').value,
@@ -288,7 +292,7 @@
         possui_entrada: forma === 'financiamento' && parseFloat(valEntrada) > 0,
         valor_entrada: valEntrada ? parseFloat(valEntrada) : 0,
         status: document.getElementById('status').value,
-        proximo_follow_up: document.getElementById('proximo_follow_up').value || null,
+        proximo_follow_up: formattedFollowUp,
         notas_follow_up: document.getElementById('notas_follow_up').value
       };
 
@@ -354,7 +358,6 @@
       }, 400);
     }
 
-    // Função para limpar a busca instantaneamente
     function clearSearch() {
       const input = document.getElementById('searchInput');
       input.value = '';
@@ -399,12 +402,12 @@
       const details = encodeURIComponent(`Cliente: ${nome}\nWhatsApp: ${fone}\nObservações: ${notas || 'N/I'}`);
       
       let startDate = new Date();
-      let endDate = new Date(startDate.getTime() + 60*60*1000);
-
       if (dataIso) {
-        startDate = new Date(dataIso);
-        endDate = new Date(startDate.getTime() + 60*60*1000);
+        // Converte a string sem o desfasamento UTC
+        const cleanedStr = dataIso.replace('Z', '');
+        startDate = new Date(cleanedStr);
       }
+      let endDate = new Date(startDate.getTime() + 60*60*1000);
 
       const fmtGCalDate = d => d.toISOString().replace(/-|:|\.\d\d\d/g,"");
       const dates = `${fmtGCalDate(startDate)}/${fmtGCalDate(endDate)}`;
@@ -417,13 +420,15 @@
       const container = document.getElementById('leadsList');
       container.innerHTML = '';
 
-      const now = new Date().toISOString().slice(0, 10);
+      // Pega data de hoje local (YYYY-MM-DD)
+      const todayDate = new Date();
+      const localTodayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
 
       const filtered = leads.filter(l => {
         const leadStatus = l.status || 'Novo';
 
         if (currentFilter === 'hoje') {
-          return l.proximo_follow_up && l.proximo_follow_up.slice(0, 10) <= now;
+          return l.proximo_follow_up && l.proximo_follow_up.slice(0, 10) <= localTodayStr;
         }
         if (currentFilter !== 'todos') {
           return leadStatus === currentFilter;
@@ -451,12 +456,19 @@
 
         let followUpBadge = '';
         if (lead.proximo_follow_up) {
-          const dt = new Date(lead.proximo_follow_up);
-          const isPast = dt < new Date();
+          // Extrai partes diretamente da string sem passar pela conversão UTC
+          const dtParts = lead.proximo_follow_up.replace('Z', '').split('T');
+          const datePart = dtParts[0].split('-');
+          const timePart = dtParts[1] ? dtParts[1].slice(0, 5) : '00:00';
+          
+          const dtDisplay = `${datePart[2]}/${datePart[1]}/${datePart[0]}`;
+          
+          const isPast = new Date(lead.proximo_follow_up.replace('Z', '')) < new Date();
+
           followUpBadge = `
             <div class="flex items-center justify-between bg-slate-900/60 p-2 rounded-lg border border-slate-700 text-xs">
               <span class="${isPast ? 'text-rose-400 font-semibold' : 'text-amber-300'} flex items-center gap-1">
-                ⏰ Follow-up: ${dt.toLocaleDateString('pt-BR')} às ${dt.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
+                ⏰ Follow-up: ${dtDisplay} às ${timePart}
               </span>
               <button onclick="addToGoogleCalendar('${lead.nome.replace(/'/g, "\\'")}', '${lead.whatsapp || ''}', '${lead.tipo_imovel || 'Imóvel'}', '${lead.proximo_follow_up}', '${(lead.notas_follow_up || '').replace(/'/g, "\\'")}')" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-[11px] flex items-center gap-1">
                 🗓️ Google Agenda

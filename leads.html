@@ -395,28 +395,36 @@
     }
 
     async function performSearch() {
-      const searchVal = document.getElementById('searchInput').value.trim();
-      if (!searchVal) {
-        loadLeadsAndCount();
-        return;
-      }
+  const searchVal = document.getElementById('searchInput').value.trim();
+  
+  if (!searchVal) {
+    loadLeadsAndCount();
+    return;
+  }
 
-      const cleanSearchQuery = normalizePhone(searchVal);
-      const searchNameQuery = searchVal.toLowerCase();
+  if (!supabaseClient) return;
 
-      if (currentLeads.length > 0) {
-        const filteredResults = currentLeads.filter(l => {
-          const normPhone = normalizePhone(l.whatsapp);
-          const leadName = (l.nome || '').toLowerCase();
+  const cleanDigits = normalizePhone(searchVal);
+  const textQuery = searchVal.toLowerCase();
 
-          const matchPhone = cleanSearchQuery && normPhone.includes(cleanSearchQuery);
-          const matchName = searchNameQuery && leadName.includes(searchNameQuery);
+  // Consulta direta no banco de dados Supabase (sem limite de 300)
+  let query = supabaseClient.from('leads').select('*');
 
-          return matchPhone || matchName;
-        });
-        renderLeads(filteredResults);
-      }
-    }
+  if (cleanDigits && cleanDigits.length >= 8) {
+    query = query.ilike('whatsapp', `%${cleanDigits}%`);
+  } else {
+    query = query.ilike('nome', `%${textQuery}%`);
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(100);
+
+  if (error) {
+    console.error('Erro na busca:', error);
+    return;
+  }
+
+  renderLeads(data || []);
+}
 
     function addToGoogleCalendar(nome, fone, tipo, dataIso, notas) {
       const title = encodeURIComponent(`Visita/Follow-up: ${nome} (${tipo || 'Imóvel'})`);

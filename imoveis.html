@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carteira de Imóveis - André Reis Imóveis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-10">
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-10 shadow-lg">
+    <div class="max-w-5xl mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-600 transition">
+          ⬅️ Hub
+        </a>
+        <h1 class="text-xl font-bold text-emerald-400 flex items-center gap-2">
+          🏠 Carteira de Imóveis <span id="totalImoveisBadge" class="text-xs bg-emerald-900/60 text-emerald-300 border border-emerald-700/50 px-2.5 py-0.5 rounded-full">0 imóveis</span>
+        </h1>
+      </div>
+      <button onclick="toggleModal('configModal')" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-1">
+        ⚙️ Config
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 space-y-4">
+
+    <!-- Top Action & Search -->
+    <div class="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+      <button onclick="openImovelModal()" class="bg-emerald-600 hover:bg-emerald-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition">
+        ➕ Novo Imóvel
+      </button>
+      
+      <!-- Caixa de Busca -->
+      <div class="relative w-full sm:w-80">
+        <input type="search" id="searchInput" oninput="debounceSearch()" placeholder="Buscar por ref, bairro, proprietário..." class="bg-slate-800 border border-slate-700 rounded-xl pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-emerald-500 w-full text-white">
+        <button onclick="clearSearch()" title="Limpar busca" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-sm bg-slate-700/60 hover:bg-slate-700 w-6 h-6 rounded-full flex items-center justify-center transition">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- Filtros de Status -->
+    <div class="flex gap-2 overflow-x-auto pb-2 border-b border-slate-800 text-xs font-medium no-scrollbar">
+      <button onclick="setFilter('todos')" id="tab-todos" class="tab-btn px-3 py-1.5 rounded-lg bg-emerald-600 text-white whitespace-nowrap">Todos</button>
+      <button onclick="setFilter('Disponível')" id="tab-Disponível" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">🟢 Disponíveis</button>
+      <button onclick="setFilter('Reservado')" id="tab-Reservado" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">🟡 Reservados</button>
+      <button onclick="setFilter('Vendido')" id="tab-Vendido" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">🔴 Vendidos</button>
+    </div>
+
+    <!-- Imóveis List -->
+    <div id="imoveisList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <p class="col-span-full text-center text-slate-500 py-8 text-sm">Carregando imóveis...</p>
+    </div>
+  </main>
+
+  <!-- Modal Form Imóvel -->
+  <div id="imovelModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 id="modalTitle" class="font-bold text-lg text-slate-100">Novo Imóvel</h3>
+        <button onclick="toggleModal('imovelModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+
+      <form id="imovelForm" onsubmit="saveImovel(event)" class="space-y-4 text-sm">
+        <input type="hidden" id="imovelId">
+        
+        <!-- Bloco 1: Identificação -->
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Cód. / Ref</label>
+            <input type="text" id="codigo" placeholder="ex: sampaio_002" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Tipo de Imóvel</label>
+            <select id="tipo_imovel" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-emerald-500 focus:outline-none">
+              <option value="Casa">Casa</option>
+              <option value="Terreno">Terreno</option>
+              <option value="Apartamento">Apartamento</option>
+              <option value="Comercial">Comercial</option>
+              <option value="Sítio/Chácara">Sítio / Chácara</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Status</label>
+            <select id="status" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-emerald-500 focus:outline-none">
+              <option value="Disponível">Disponível</option>
+              <option value="Reservado">Reservado</option>
+              <option value="Vendido">Vendido</option>
+              <option value="Suspenso">Suspenso</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Bloco 2: Localização -->
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60 space-y-3">
+          <label class="block text-emerald-400 font-medium">📍 Localização</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1">Bairro / Região</label>
+              <input type="text" id="bairro" placeholder="ex: Itaúna, Sampaio Corrêa" required class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Endereço / Logradouro</label>
+              <input type="text" id="endereco" placeholder="Rua, Número" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1">Quadra</label>
+              <input type="text" id="quadra" placeholder="ex: Qda 12" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Lote</label>
+              <input type="text" id="lote" placeholder="ex: Lote 05" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white">
+            </div>
+          </div>
+        </div>
+
+        <!-- Bloco 3: Documentação & Valoração -->
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Matrícula (RGI)</label>
+            <input type="text" id="matricula" placeholder="Nº RGI" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Inscrição IPTU</label>
+            <input type="text" id="iptu_inscricao" placeholder="Inscrição Municipal" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Valor IPTU (R$)</label>
+            <input type="number" id="iptu_valor" placeholder="ex: 850" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+          </div>
+        </div>
+
+        <!-- Bloco 4: Proprietário & Valores -->
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60 space-y-3">
+          <label class="block text-emerald-400 font-medium">👤 Proprietário & Negócio</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1">Nome do Proprietário</label>
+              <input type="text" id="nome_proprietario" placeholder="Nome Completo" required class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">WhatsApp Proprietário</label>
+              <input type="text" id="whatsapp_proprietario" placeholder="22999999999" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1">Valor de Venda (R$)</label>
+              <input type="number" id="valor_venda" placeholder="ex: 350000" required class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Comissão (%)</label>
+              <input type="number" step="0.5" id="comissao_percentual" placeholder="ex: 6" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Observações & Detalhes Internos</label>
+          <textarea id="observacoes" rows="3" placeholder="Detalhes de acesso, chaves, situação documental ou acordos..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-emerald-500 focus:outline-none"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl shadow-lg shadow-emerald-600/20 active:scale-95 transition">
+          Salvar Imóvel
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Config Supabase -->
+  <div id="configModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-slate-100">Configuração Supabase</h3>
+        <button onclick="toggleModal('configModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-slate-400 mb-1">Project URL</label>
+          <input type="text" id="cfgUrl" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">API Key</label>
+          <input type="password" id="cfgKey" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <button onclick="saveConfig()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl">
+          Salvar Conexão
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let supabaseClient = null;
+    let currentImoveis = [];
+    let currentFilter = 'todos';
+    let searchTimeout = null;
+
+    function initSupabase() {
+      const url = localStorage.getItem('sp_url');
+      const key = localStorage.getItem('sp_key');
+      if (url && key) {
+        supabaseClient = supabase.createClient(url, key);
+        document.getElementById('cfgUrl').value = url;
+        document.getElementById('cfgKey').value = key;
+        loadImoveis();
+      } else {
+        toggleModal('configModal');
+      }
+    }
+
+    function saveConfig() {
+      const url = document.getElementById('cfgUrl').value.trim();
+      const key = document.getElementById('cfgKey').value.trim();
+      if (url && key) {
+        localStorage.setItem('sp_url', url);
+        localStorage.setItem('sp_key', key);
+        supabaseClient = supabase.createClient(url, key);
+        toggleModal('configModal');
+        loadImoveis();
+      }
+    }
+
+    function toggleModal(id) {
+      const m = document.getElementById(id);
+      m.classList.toggle('hidden');
+      m.classList.toggle('flex');
+    }
+
+    function openImovelModal(imovel = null) {
+      document.getElementById('imovelForm').reset();
+      document.getElementById('imovelId').value = '';
+      document.getElementById('modalTitle').innerText = imovel ? 'Editar Imóvel' : 'Novo Imóvel';
+
+      if (imovel) {
+        document.getElementById('imovelId').value = imovel.id;
+        document.getElementById('codigo').value = imovel.codigo || '';
+        document.getElementById('tipo_imovel').value = imovel.tipo_imovel || 'Casa';
+        document.getElementById('status').value = imovel.status || 'Disponível';
+        document.getElementById('bairro').value = imovel.bairro || '';
+        document.getElementById('endereco').value = imovel.endereco || '';
+        document.getElementById('quadra').value = imovel.quadra || '';
+        document.getElementById('lote').value = imovel.lote || '';
+        document.getElementById('matricula').value = imovel.matricula || '';
+        document.getElementById('iptu_inscricao').value = imovel.iptu_inscricao || '';
+        document.getElementById('iptu_valor').value = imovel.iptu_valor || '';
+        document.getElementById('nome_proprietario').value = imovel.nome_proprietario || '';
+        document.getElementById('whatsapp_proprietario').value = imovel.whatsapp_proprietario || '';
+        document.getElementById('valor_venda').value = imovel.valor_venda || '';
+        document.getElementById('comissao_percentual').value = imovel.comissao_percentual || '';
+        document.getElementById('observacoes').value = imovel.observacoes || '';
+      }
+      toggleModal('imovelModal');
+    }
+
+    async function saveImovel(e) {
+      e.preventDefault();
+      if (!supabaseClient) return alert('Configure o Supabase primeiro.');
+
+      const id = document.getElementById('imovelId').value;
+      const payload = {
+        codigo: document.getElementById('codigo').value,
+        tipo_imovel: document.getElementById('tipo_imovel').value,
+        status: document.getElementById('status').value,
+        bairro: document.getElementById('bairro').value,
+        endereco: document.getElementById('endereco').value,
+        quadra: document.getElementById('quadra').value,
+        lote: document.getElementById('lote').value,
+        matricula: document.getElementById('matricula').value,
+        iptu_inscricao: document.getElementById('iptu_inscricao').value,
+        iptu_valor: document.getElementById('iptu_valor').value ? parseFloat(document.getElementById('iptu_valor').value) : null,
+        nome_proprietario: document.getElementById('nome_proprietario').value,
+        whatsapp_proprietario: document.getElementById('whatsapp_proprietario').value,
+        valor_venda: document.getElementById('valor_venda').value ? parseFloat(document.getElementById('valor_venda').value) : 0,
+        comissao_percentual: document.getElementById('comissao_percentual').value ? parseFloat(document.getElementById('comissao_percentual').value) : null,
+        observacoes: document.getElementById('observacoes').value
+      };
+
+      let error;
+      if (id) {
+        ({ error } = await supabaseClient.from('imoveis').update(payload).eq('id', id));
+      } else {
+        ({ error } = await supabaseClient.from('imoveis').insert([payload]));
+      }
+
+      if (error) {
+        alert('Erro ao salvar imóvel: ' + error.message);
+      } else {
+        toggleModal('imovelModal');
+        loadImoveis();
+      }
+    }
+
+    async function loadImoveis() {
+      if (!supabaseClient) return;
+
+      const { data, error } = await supabaseClient
+        .from('imoveis')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      currentImoveis = data || [];
+      document.getElementById('totalImoveisBadge').innerText = `${currentImoveis.length} imóveis`;
+      renderImoveis(currentImoveis);
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-emerald-600', 'text-white');
+        btn.classList.add('bg-slate-800', 'text-slate-400');
+      });
+      const activeBtn = document.getElementById(`tab-${filter}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-slate-800', 'text-slate-400');
+        activeBtn.classList.add('bg-emerald-600', 'text-white');
+      }
+      renderImoveis(currentImoveis);
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => performSearch(), 300);
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('searchInput');
+      input.value = '';
+      renderImoveis(currentImoveis);
+      input.focus();
+    }
+
+    function performSearch() {
+      const searchVal = document.getElementById('searchInput').value.toLowerCase().trim();
+      if (!searchVal) {
+        renderImoveis(currentImoveis);
+        return;
+      }
+
+      const filtered = currentImoveis.filter(i => 
+        (i.codigo || '').toLowerCase().includes(searchVal) ||
+        (i.bairro || '').toLowerCase().includes(searchVal) ||
+        (i.nome_proprietario || '').toLowerCase().includes(searchVal) ||
+        (i.endereco || '').toLowerCase().includes(searchVal)
+      );
+      renderImoveis(filtered);
+    }
+
+    function renderImoveis(imoveis) {
+      const container = document.getElementById('imoveisList');
+      container.innerHTML = '';
+
+      const filtered = imoveis.filter(i => {
+        if (currentFilter !== 'todos') return (i.status || 'Disponível') === currentFilter;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="col-span-full text-center text-slate-500 py-8 text-sm">Nenhum imóvel encontrado.</p>`;
+        return;
+      }
+
+      filtered.forEach(imovel => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-800 border border-slate-700/80 rounded-xl p-4 space-y-3 shadow-md flex flex-col justify-between';
+
+        const fmtMoeda = v => v ? `R$ ${Number(v).toLocaleString('pt-BR')}` : 'Não inf.';
+        const cleanPhone = (imovel.whatsapp_proprietario || '').replace(/\D/g, '');
+        const waUrl = cleanPhone ? `https://wa.me/55${cleanPhone}` : '#';
+
+        let statusBadge = 'bg-emerald-900/40 text-emerald-300 border-emerald-700/50';
+        if (imovel.status === 'Reservado') statusBadge = 'bg-amber-900/40 text-amber-300 border-amber-700/50';
+        if (imovel.status === 'Vendido') statusBadge = 'bg-rose-900/40 text-rose-300 border-rose-700/50';
+
+        card.innerHTML = `
+          <div class="space-y-2">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="text-xs font-mono bg-slate-900 text-emerald-400 px-2 py-0.5 rounded border border-slate-700">Ref: ${imovel.codigo || 'N/I'}</span>
+                <h4 class="font-bold text-base text-slate-100 mt-1">${imovel.tipo_imovel} - ${imovel.bairro || 'Saquarema'}</h4>
+              </div>
+              <span class="text-xs px-2.5 py-1 rounded-full font-medium border ${statusBadge}">
+                ${imovel.status || 'Disponível'}
+              </span>
+            </div>
+
+            <div class="text-xs text-slate-300 space-y-1 bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
+              <p>📍 <strong>Endereço:</strong> ${imovel.endereco || 'Não informado'} ${imovel.quadra ? `(Qda: ${imovel.quadra}, Lote: ${imovel.lote})` : ''}</p>
+              <p>📄 <strong>Matrícula RGI:</strong> ${imovel.matricula || 'N/I'} • <strong>IPTU:</strong> ${imovel.iptu_inscricao || 'N/I'}</p>
+              <p>👤 <strong>Proprietário:</strong> ${imovel.nome_proprietario} ${imovel.whatsapp_proprietario ? `(${imovel.whatsapp_proprietario})` : ''}</p>
+            </div>
+
+            <div class="flex justify-between items-center bg-slate-900/80 p-2 rounded-lg border border-slate-700/60">
+              <span class="text-xs text-slate-400">Valor de Venda:</span>
+              <span class="text-base font-bold text-emerald-400">${fmtMoeda(imovel.valor_venda)}</span>
+            </div>
+
+            ${imovel.observacoes ? `<p class="text-xs text-slate-400 italic">💬 ${imovel.observacoes}</p>` : ''}
+          </div>
+
+          <div class="flex justify-between items-center pt-3 border-t border-slate-700/60 text-xs mt-2">
+            <a href="${waUrl}" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1.5 rounded-lg flex items-center gap-1">
+              💬 WhatsApp Prop.
+            </a>
+            <div class="flex gap-2">
+              <button onclick='openImovelModal(${JSON.stringify(imovel)})' class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg">✏️ Editar</button>
+              <button onclick="deleteImovel('${imovel.id}')" class="text-rose-400 hover:bg-rose-950/40 p-1.5 rounded-lg">🗑️</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function deleteImovel(id) {
+      if (!confirm('Deseja excluir este imóvel da carteira?')) return;
+      const { error } = await supabaseClient.from('imoveis').delete().eq('id', id);
+      if (!error) loadImoveis();
+    }
+
+    window.onload = initSupabase;
+  </script>
+</body>
+</html>

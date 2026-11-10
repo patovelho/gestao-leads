@@ -36,7 +36,8 @@
         </label>
       </div>
       
-      <input type="search" id="searchInput" autocomplete="off" oninput="debounceSearch()" placeholder="Buscar por nome ou sequência do celular..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-80 text-white">
+      <!-- Campos de controle anti-autocomplete rigorosos -->
+      <input type="search" id="searchInput" name="search_leads" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="debounceSearch()" placeholder="Buscar por nome ou sequência do celular..." class="bg-slate-800 border border-slate-700 rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 w-full sm:w-80 text-white">
     </div>
 
     <!-- Barra de Progresso de Importação -->
@@ -550,10 +551,9 @@
           if (idxNome === -1) idxNome = 6;
           if (idxFone === -1) idxFone = 7;
 
-          // Buscar TODOS os registos existentes no Supabase em lotes
           let existingPhones = new Set();
           let existingEmails = new Set();
-          let existingNameDate = new Set(); // Para leads sem fone (Nome + Data YYYY-MM-DD)
+          let existingNameDate = new Set();
           
           let from = 0;
           let step = 1000;
@@ -575,7 +575,6 @@
                 const normE = normalizeEmail(l.notas_follow_up);
                 if (normE) existingEmails.add(normE);
 
-                // Se não tem fone, guarda chave Nome + Data (apenas YYYY-MM-DD)
                 if ((!l.whatsapp || l.whatsapp.includes('Não informado') || normalizePhone(l.whatsapp) === '') && l.nome && l.created_at) {
                   const keyND = (l.nome.trim().toLowerCase()) + '_' + l.created_at.slice(0, 10);
                   existingNameDate.add(keyND);
@@ -614,7 +613,6 @@
               }
             }
 
-            // Chave por Nome + Data (apenas YYYY-MM-DD para ignorar diferenças de segundos/horas)
             const keyNameDate = (nome.trim().toLowerCase()) + '_' + parsedDate.toISOString().slice(0, 10);
 
             if (!nome || nome === 'NaN') continue;

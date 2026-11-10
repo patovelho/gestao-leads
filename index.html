@@ -350,7 +350,7 @@
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(300); // Aumentado para carregar até 300 leads recentes na memória para busca instantânea
+        .limit(300);
 
       if (error) {
         console.error(error);
@@ -389,7 +389,6 @@
       input.focus();
     }
 
-    // BUSCA INSTANTÂNEA LOCAL: Filtra perfeitamente na memória, encontrando qualquer pedaço do número ou nome
     async function performSearch() {
       const searchVal = document.getElementById('searchInput').value.trim();
       if (!searchVal) {
@@ -400,7 +399,6 @@
       const cleanSearchQuery = normalizePhone(searchVal);
       const searchNameQuery = searchVal.toLowerCase();
 
-      // Se já temos leads carregados, filtra diretamente na memória com total precisão
       if (currentLeads.length > 0) {
         const filteredResults = currentLeads.filter(l => {
           const normPhone = normalizePhone(l.whatsapp);
@@ -654,7 +652,10 @@
 
             const keyNameDate = (nome.trim().toLowerCase()) + '_' + parsedDate.toISOString().slice(0, 10);
 
-            if (!nome || nome === 'NaN') continue;
+            // CORREÇÃO ROBUSTA: Se tiver Nome e Telefone válidos, processa mesmo que o e-mail venha em branco
+            if (!nome || nome === 'NaN' || !normFone) {
+              if (!nome || nome === 'NaN') continue;
+            }
 
             const isDupPhone = normFone && existingPhones.has(normFone);
             const isDupEmail = normEmail && existingEmails.has(normEmail);

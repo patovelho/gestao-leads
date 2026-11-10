@@ -269,27 +269,35 @@
       toggleModal('leadModal');
     }
 
-    // TRAVA INTELIGENTE AO SALVAR MANUALMENTE: Impede duplicar se o telefone já existe na base
+    // TRAVA RIGOROSA AO SALVAR MANUALMENTE (Bloqueia se o telefone ou o nome já existirem na base)
     async function saveLead(e) {
       e.preventDefault();
       if (!supabaseClient) return alert('Configure o Supabase primeiro.');
 
       const id = document.getElementById('leadId').value;
+      const nomeInput = document.getElementById('nome').value.trim().toLowerCase();
       const foneInput = document.getElementById('whatsapp').value;
       const normInputPhone = normalizePhone(foneInput);
 
-      // Se for um lead novo, verifica se o telefone já está cadastrado no banco antes de salvar
-      if (!id && normInputPhone) {
-        const { data: existingCheck } = await supabaseClient
+      // Se for um novo registo, valida duplicação no Supabase por Telefone ou Nome
+      if (!id) {
+        const { data: allLeadsCheck, error: checkErr } = await supabaseClient
           .from('leads')
-          .select('id, whatsapp, nome')
-          .ilike('whatsapp', `%${normInputPhone.slice(-8)}%`); // busca pelos últimos 8 dígitos para garantir
+          .select('id, whatsapp, nome');
 
-        if (existingCheck && existingCheck.length > 0) {
-          // Confere rigidamente se algum bate com os dígitos normalizados
-          const duplicateFound = existingCheck.some(l => normalizePhone(l.whatsapp) === normInputPhone);
-          if (duplicateFound) {
-            alert(`⚠️ Atenção: Este número de telemóvel já está cadastrado na base de dados para o lead "${existingCheck[0].nome}"!`);
+        if (!checkErr && allLeadsCheck) {
+          const foundDuplicate = allLeadsCheck.find(l => {
+            const normExistingPhone = normalizePhone(l.whatsapp);
+            const existingName = (l.nome || '').trim().toLowerCase();
+
+            const matchPhone = normInputPhone && normExistingPhone && (normInputPhone === normExistingPhone);
+            const matchName = nomeInput && existingName && (nomeInput === existingName);
+
+            return matchPhone || matchName;
+          });
+
+          if (foundDuplicate) {
+            alert(`⚠️ Atenção: Já existe um lead registado com dados semelhantes na base!\n\nNome: ${foundDuplicate.nome}\nTelefone: ${foundDuplicate.whatsapp}`);
             return;
           }
         }
@@ -533,7 +541,6 @@
       });
     }
 
-    // Normalização rigorosa: remove hífens, parênteses, espaços e o DDI 55
     function normalizePhone(raw) {
       if (!raw) return '';
       let clean = raw.replace(/\D/g, '');

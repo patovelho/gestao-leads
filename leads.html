@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Leads Imobiliários</title>
+  <link rel="manifest" href="data:application/json,{\"name\":\"Gestão de Leads\",\"short_name\":\"Leads\",\"start_url\":\".\",\"display\":\"standalone\",\"background_color\":\"#0f172a\",\"theme_color\":\"#2563eb\"}">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-10">
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-10 shadow-lg">
+    <div class="max-w-4xl mx-auto flex justify-between items-center">
+      <h1 class="text-xl font-bold text-blue-400 flex items-center gap-2">
+        🏠 Gestão de Leads <span id="totalLeadsBadge" class="text-xs bg-blue-900/60 text-blue-300 border border-blue-700/50 px-2.5 py-0.5 rounded-full">0 leads</span>
+      </h1>
+      <button onclick="toggleModal('configModal')" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-1">
+        ⚙️ Config
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto p-4 space-y-4">
+
+    <!-- Top Action & Search -->
+    <div class="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+      <div class="flex gap-2">
+        <button onclick="openLeadModal()" class="bg-blue-600 hover:bg-blue-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20 active:scale-95 transition">
+          ➕ Novo Lead
+        </button>
+        <label id="importLabel" class="bg-emerald-600 hover:bg-emerald-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition cursor-pointer">
+          📥 Importar Planilha (Blindagem Definitiva)
+          <input type="file" id="fileImport" accept=".xls,.xlsx,.html,.htm,.csv" class="hidden" onchange="importFile(event)">
+        </label>
+      </div>
+      
+      <!-- Caixa de Busca com Botão Limpar Integrado -->
+      <div class="relative w-full sm:w-80">
+        <input type="search" id="searchInput" name="search_leads" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="debounceSearch()" placeholder="Buscar por nome ou celular..." class="bg-slate-800 border border-slate-700 rounded-xl pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-blue-500 w-full text-white">
+        <button onclick="clearSearch()" title="Limpar busca" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-sm bg-slate-700/60 hover:bg-slate-700 w-6 h-6 rounded-full flex items-center justify-center transition">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra de Progresso de Importação -->
+    <div id="progressContainer" class="hidden bg-slate-800 border border-slate-700 rounded-xl p-4 space-y-2 shadow-xl">
+      <div class="flex justify-between text-xs font-medium text-slate-300">
+        <span id="progressText">A processar ficheiro...</span>
+        <span id="progressPercent">0%</span>
+      </div>
+      <div class="w-full bg-slate-900 rounded-full h-3 overflow-hidden border border-slate-700">
+        <div id="progressBar" class="bg-emerald-500 h-full w-0 transition-all duration-300"></div>
+      </div>
+    </div>
+
+    <!-- Status & Follow-up Tabs -->
+    <div class="flex gap-2 overflow-x-auto pb-2 border-b border-slate-800 text-xs font-medium no-scrollbar">
+      <button onclick="setFilter('todos')" id="tab-todos" class="tab-btn px-3 py-1.5 rounded-lg bg-blue-600 text-white whitespace-nowrap">Todos</button>
+      <button onclick="setFilter('hoje')" id="tab-hoje" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">🔔 Follow-up Hoje</button>
+      <button onclick="setFilter('Novo')" id="tab-Novo" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">Novos</button>
+      <button onclick="setFilter('Em Contato')" id="tab-Em Contato" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">Em Contato</button>
+      <button onclick="setFilter('Visita Agendada')" id="tab-Visita Agendada" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">Visitas</button>
+      <button onclick="setFilter('Proposta')" id="tab-Proposta" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">Propostas</button>
+      <button onclick="setFilter('Fechado')" id="tab-Fechado" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">Fechados</button>
+    </div>
+
+    <!-- Lead List -->
+    <div id="leadsList" class="space-y-3">
+      <p class="text-center text-slate-500 py-8 text-sm">Carregando leads...</p>
+    </div>
+  </main>
+
+  <!-- Modal Lead Form -->
+  <div id="leadModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 id="modalTitle" class="font-bold text-lg text-slate-100">Novo Lead</h3>
+        <button onclick="toggleModal('leadModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+
+      <form id="leadForm" onsubmit="saveLead(event)" class="space-y-3 text-sm">
+        <input type="hidden" id="leadId">
+        
+        <div>
+          <label class="block text-slate-400 mb-1">Nome Completo</label>
+          <input type="text" id="nome" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">WhatsApp / Fone</label>
+            <input type="text" id="whatsapp" required placeholder="22999999999" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Origem do Lead</label>
+            <select id="origem" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+              <option value="Meta Ads">Meta Ads (FB/Insta)</option>
+              <option value="Google Ads">Google Ads</option>
+              <option value="OLX">Portal OLX</option>
+              <option value="Chaves na Mão">Chaves na Mão</option>
+              <option value="ImóvelWeb">ImóvelWeb</option>
+              <option value="Indicação">Indicação</option>
+              <option value="Placa">Placa no Imóvel</option>
+              <option value="Outro">Outro</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Tipo de Imóvel</label>
+            <select id="tipo_imovel" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+              <option value="Casa">Casa</option>
+              <option value="Terreno">Terreno</option>
+              <option value="Apartamento">Apartamento</option>
+              <option value="Comercial">Comercial</option>
+              <option value="Cobertura">Cobertura</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Orçamento Max (R$)</label>
+            <input type="number" id="orcamento" placeholder="Ex: 450000" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60 space-y-3">
+          <label class="block text-slate-300 font-medium">Condição de Pagamento</label>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <select id="forma_pagamento" onchange="toggleEntradaDiv()" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+                <option value="a_vista">À Vista</option>
+                <option value="financiamento">Financiamento</option>
+              </select>
+            </div>
+            <div id="entradaDiv" class="hidden">
+              <input type="number" id="valor_entrada" placeholder="Valor Entrada (R$)" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Status do Funil</label>
+            <select id="status" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+              <option value="Novo">Novo Lead</option>
+              <option value="Em Contato">Em Contato</option>
+              <option value="Visita Agendada">Visita Agendada</option>
+              <option value="Proposta">Proposta Apresentada</option>
+              <option value="Fechado">Venda Fechada</option>
+              <option value="Perdido">Perdido / Inativo</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Próximo Follow-up</label>
+            <input type="datetime-local" id="proximo_follow_up" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Notas / Observações</label>
+          <textarea id="notas_follow_up" rows="3" placeholder="Detalhes da conversa, preferências do cliente, etc..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-blue-500 focus:outline-none"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl shadow-lg shadow-blue-600/20 active:scale-95 transition">
+          Salvar Lead
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Config Supabase -->
+  <div id="configModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-slate-100">Configuração Supabase</h3>
+        <button onclick="toggleModal('configModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-slate-400 mb-1">Project URL</label>
+          <input type="text" id="cfgUrl" placeholder="https://xxx.supabase.co" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">API Key (Publishable)</label>
+          <input type="password" id="cfgKey" placeholder="sb_publishable_..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <button onclick="saveConfig()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl">
+          Salvar Conexão
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let supabaseClient = null;
+    let currentLeads = [];
+    let currentFilter = 'todos';
+    let searchTimeout = null;
+
+    function initSupabase() {
+      const url = localStorage.getItem('sp_url');
+      const key = localStorage.getItem('sp_key');
+      if (url && key) {
+        supabaseClient = supabase.createClient(url, key);
+        document.getElementById('cfgUrl').value = url;
+        document.getElementById('cfgKey').value = key;
+        loadLeadsAndCount();
+      } else {
+        toggleModal('configModal');
+      }
+    }
+
+    function saveConfig() {
+      const url = document.getElementById('cfgUrl').value.trim();
+      const key = document.getElementById('cfgKey').value.trim();
+      if (url && key) {
+        localStorage.setItem('sp_url', url);
+        localStorage.setItem('sp_key', key);
+        supabaseClient = supabase.createClient(url, key);
+        toggleModal('configModal');
+        loadLeadsAndCount();
+      }
+    }
+
+    function toggleModal(id) {
+      const m = document.getElementById(id);
+      m.classList.toggle('hidden');
+      m.classList.toggle('flex');
+    }
+
+    function toggleEntradaDiv() {
+      const forma = document.getElementById('forma_pagamento').value;
+      const div = document.getElementById('entradaDiv');
+      if (forma === 'financiamento') {
+        div.classList.remove('hidden');
+      } else {
+        div.classList.add('hidden');
+        document.getElementById('valor_entrada').value = '';
+      }
+    }
+
+    function openLeadModal(lead = null) {
+      document.getElementById('leadForm').reset();
+      document.getElementById('leadId').value = '';
+      document.getElementById('modalTitle').innerText = lead ? 'Editar Lead' : 'Novo Lead';
+      toggleEntradaDiv();
+
+      if (lead) {
+        document.getElementById('leadId').value = lead.id;
+        document.getElementById('nome').value = lead.nome || '';
+        document.getElementById('whatsapp').value = lead.whatsapp || '';
+        document.getElementById('origem').value = lead.origem || 'Meta Ads';
+        document.getElementById('tipo_imovel').value = lead.tipo_imovel || 'Casa';
+        document.getElementById('orcamento').value = lead.orcamento || '';
+        document.getElementById('forma_pagamento').value = lead.forma_pagamento || 'a_vista';
+        document.getElementById('valor_entrada').value = lead.valor_entrada || '';
+        document.getElementById('status').value = lead.status || 'Novo';
+        document.getElementById('notas_follow_up').value = lead.notas_follow_up || '';
+        
+        if (lead.proximo_follow_up) {
+          const rawDt = lead.proximo_follow_up.replace('Z', '');
+          document.getElementById('proximo_follow_up').value = rawDt.slice(0, 16);
+        }
+        toggleEntradaDiv();
+      }
+      toggleModal('leadModal');
+    }
+
+    async function saveLead(e) {
+      e.preventDefault();
+      if (!supabaseClient) return alert('Configure o Supabase primeiro.');
+
+      const id = document.getElementById('leadId').value;
+      const nomeInput = document.getElementById('nome').value.trim().toLowerCase();
+      const foneInput = document.getElementById('whatsapp').value;
+      const normInputPhone = normalizePhone(foneInput);
+
+      if (!id) {
+        const { data: allLeadsCheck, error: checkErr } = await supabaseClient
+          .from('leads')
+          .select('id, whatsapp, nome');
+
+        if (!checkErr && allLeadsCheck) {
+          const foundDuplicate = allLeadsCheck.find(l => {
+            const normExistingPhone = normalizePhone(l.whatsapp);
+            const existingName = (l.nome || '').trim().toLowerCase();
+
+            const matchPhone = normInputPhone && normExistingPhone && (normInputPhone === normExistingPhone);
+            const matchName = nomeInput && existingName && (nomeInput === existingName);
+
+            return matchPhone || matchName;
+          });
+
+          if (foundDuplicate) {
+            alert(`⚠️ Atenção: Já existe um lead registado com dados semelhantes na base!\n\nNome: ${foundDuplicate.nome}\nTelefone: ${foundDuplicate.whatsapp}`);
+            return;
+          }
+        }
+      }
+
+      const forma = document.getElementById('forma_pagamento').value;
+      const valEntrada = document.getElementById('valor_entrada').value;
+      const rawFollowUp = document.getElementById('proximo_follow_up').value;
+      const formattedFollowUp = rawFollowUp ? `${rawFollowUp}:00` : null;
+
+      const payload = {
+        nome: document.getElementById('nome').value,
+        whatsapp: foneInput,
+        origem: document.getElementById('origem').value,
+        tipo_imovel: document.getElementById('tipo_imovel').value,
+        orcamento: document.getElementById('orcamento').value ? parseFloat(document.getElementById('orcamento').value) : null,
+        forma_pagamento: forma,
+        possui_entrada: forma === 'financiamento' && parseFloat(valEntrada) > 0,
+        valor_entrada: valEntrada ? parseFloat(valEntrada) : 0,
+        status: document.getElementById('status').value,
+        proximo_follow_up: formattedFollowUp,
+        notas_follow_up: document.getElementById('notas_follow_up').value
+      };
+
+      let error;
+      if (id) {
+        ({ error } = await supabaseClient.from('leads').update(payload).eq('id', id));
+      } else {
+        ({ error } = await supabaseClient.from('leads').insert([payload]));
+      }
+
+      if (error) {
+        alert('Erro ao salvar: ' + error.message);
+      } else {
+        toggleModal('leadModal');
+        loadLeadsAndCount();
+      }
+    }
+
+    async function loadLeadsAndCount() {
+      if (!supabaseClient) return;
+
+      const { count, error: countError } = await supabaseClient
+        .from('leads')
+        .select('*', { count: 'exact', head: true });
+
+      if (!countError && count !== null) {
+        document.getElementById('totalLeadsBadge').innerText = `${count} leads`;
+      }
+
+      const { data, error } = await supabaseClient
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(300);
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      currentLeads = data || [];
+      renderLeads(currentLeads);
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-blue-600', 'text-white');
+        btn.classList.add('bg-slate-800', 'text-slate-400');
+      });
+      const activeBtn = document.getElementById(`tab-${filter}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-slate-800', 'text-slate-400');
+        activeBtn.classList.add('bg-blue-600', 'text-white');
+      }
+      loadLeadsAndCount();
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => {
+        performSearch();
+      }, 300);
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('searchInput');
+      input.value = '';
+      loadLeadsAndCount();
+      input.focus();
+    }
+
+    async function performSearch() {
+      const searchVal = document.getElementById('searchInput').value.trim();
+      if (!searchVal) {
+        loadLeadsAndCount();
+        return;
+      }
+
+      const cleanSearchQuery = normalizePhone(searchVal);
+      const searchNameQuery = searchVal.toLowerCase();
+
+      if (currentLeads.length > 0) {
+        const filteredResults = currentLeads.filter(l => {
+          const normPhone = normalizePhone(l.whatsapp);
+          const leadName = (l.nome || '').toLowerCase();
+
+          const matchPhone = cleanSearchQuery && normPhone.includes(cleanSearchQuery);
+          const matchName = searchNameQuery && leadName.includes(searchNameQuery);
+
+          return matchPhone || matchName;
+        });
+        renderLeads(filteredResults);
+      }
+    }
+
+    function addToGoogleCalendar(nome, fone, tipo, dataIso, notas) {
+      const title = encodeURIComponent(`Visita/Follow-up: ${nome} (${tipo || 'Imóvel'})`);
+      const details = encodeURIComponent(`Cliente: ${nome}\nWhatsApp: ${fone}\nObservações: ${notas || 'N/I'}`);
+      
+      let startDate = new Date();
+      if (dataIso) {
+        const cleanedStr = dataIso.replace('Z', '');
+        startDate = new Date(cleanedStr);
+      }
+      let endDate = new Date(startDate.getTime() + 60*60*1000);
+
+      const fmtGCalDate = d => d.toISOString().replace(/-|:|\.\d\d\d/g,"");
+      const dates = `${fmtGCalDate(startDate)}/${fmtGCalDate(endDate)}`;
+
+      const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&dates=${dates}`;
+      window.open(url, '_blank');
+    }
+
+    function renderLeads(leads) {
+      const container = document.getElementById('leadsList');
+      container.innerHTML = '';
+
+      const todayDate = new Date();
+      const localTodayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
+
+      const filtered = leads.filter(l => {
+        const leadStatus = l.status || 'Novo';
+
+        if (currentFilter === 'hoje') {
+          return l.proximo_follow_up && l.proximo_follow_up.slice(0, 10) <= localTodayStr;
+        }
+        if (currentFilter !== 'todos') {
+          return leadStatus === currentFilter;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-center text-slate-500 py-8 text-sm">Nenhum lead encontrado.</p>`;
+        return;
+      }
+
+      filtered.forEach(lead => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-800 border border-slate-700/80 rounded-xl p-4 space-y-3 shadow-md';
+
+        const cleanPhone = (lead.whatsapp || '').replace(/\D/g, '');
+        const waUrl = cleanPhone ? `https://wa.me/55${cleanPhone}` : '#';
+
+        const fmtMoeda = v => v ? `R$ ${Number(v).toLocaleString('pt-BR')}` : 'Não inf.';
+        
+        let pagBadge = lead.forma_pagamento === 'financiamento' 
+          ? `<span class="bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded text-[11px] border border-purple-700/50">Financiamento ${lead.valor_entrada ? '(Entrada: ' + fmtMoeda(lead.valor_entrada) + ')' : ''}</span>`
+          : `<span class="bg-emerald-900/40 text-emerald-300 px-2 py-0.5 rounded text-[11px] border border-emerald-700/50">À Vista</span>`;
+
+        let followUpBadge = '';
+        if (lead.proximo_follow_up) {
+          const dtParts = lead.proximo_follow_up.replace('Z', '').split('T');
+          const datePart = dtParts[0].split('-');
+          const timePart = dtParts[1] ? dtParts[1].slice(0, 5) : '00:00';
+          
+          const dtDisplay = `${datePart[2]}/${datePart[1]}/${datePart[0]}`;
+          const isPast = new Date(lead.proximo_follow_up.replace('Z', '')) < new Date();
+
+          followUpBadge = `
+            <div class="flex items-center justify-between bg-slate-900/60 p-2 rounded-lg border border-slate-700 text-xs">
+              <span class="${isPast ? 'text-rose-400 font-semibold' : 'text-amber-300'} flex items-center gap-1">
+                ⏰ Follow-up: ${dtDisplay} às ${timePart}
+              </span>
+              <button onclick="addToGoogleCalendar('${lead.nome.replace(/'/g, "\\'")}', '${lead.whatsapp || ''}', '${lead.tipo_imovel || 'Imóvel'}', '${lead.proximo_follow_up}', '${(lead.notas_follow_up || '').replace(/'/g, "\\'")}')" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-[11px] flex items-center gap-1">
+                🗓️ Google Agenda
+              </button>
+            </div>`;
+        }
+
+        const dtCriacao = lead.created_at ? new Date(lead.created_at).toLocaleString('pt-BR', {dateStyle: 'short', timeStyle: 'short'}) : '';
+
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <h4 class="font-bold text-base text-slate-100">${lead.nome}</h4>
+              <p class="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                <span>📍 ${lead.tipo_imovel || 'Imóvel'}</span> • 
+                <span>💰 ${fmtMoeda(lead.orcamento)}</span>
+              </p>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              <span class="bg-blue-900/40 text-blue-300 border border-blue-700/50 text-xs px-2.5 py-1 rounded-full font-medium">
+                ${lead.status || 'Novo'}
+              </span>
+              ${dtCriacao ? `<span class="text-[10px] text-slate-400">Contato: ${dtCriacao}</span>` : ''}
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5 items-center">
+            <span class="bg-slate-700 text-slate-300 text-[11px] px-2 py-0.5 rounded">Origem: ${lead.origem || 'N/I'}</span>
+            ${pagBadge}
+            <span class="bg-slate-900 text-slate-400 text-[11px] px-2 py-0.5 rounded">Fone: ${lead.whatsapp || 'N/I'}</span>
+          </div>
+
+          ${lead.notas_follow_up ? `<p class="text-xs text-slate-300 bg-slate-900/70 p-2.5 rounded-lg border border-slate-700/50">💬 ${lead.notas_follow_up}</p>` : ''}
+          
+          ${followUpBadge}
+
+          <div class="flex justify-between items-center pt-2 border-t border-slate-700/60 text-xs">
+            <a href="${waUrl}" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+              💬 WhatsApp
+            </a>
+            <div class="flex gap-2">
+              <button onclick='openLeadModal(${JSON.stringify(lead)})' class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg">✏️ Editar / Follow-up</button>
+              <button onclick="deleteLead('${lead.id}')" class="text-rose-400 hover:bg-rose-950/40 p-1.5 rounded-lg">🗑️</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function normalizePhone(raw) {
+      if (!raw) return '';
+      let clean = raw.replace(/\D/g, '');
+      if (clean.startsWith('55') && clean.length > 11) {
+        clean = clean.substring(2);
+      }
+      return clean;
+    }
+
+    function normalizeEmail(raw) {
+      if (!raw) return '';
+      const emailMatch = raw.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/);
+      return emailMatch ? emailMatch[1].toLowerCase().trim() : '';
+    }
+
+    async function importFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      if (!supabaseClient) {
+        alert('Configure o Supabase primeiro.');
+        return;
+      }
+
+      const progressContainer = document.getElementById('progressContainer');
+      const progressBar = document.getElementById('progressBar');
+      const progressText = document.getElementById('progressText');
+      const progressPercent = document.getElementById('progressPercent');
+      
+      progressContainer.classList.remove('hidden');
+      progressText.innerText = "A ler a base de dados para blindagem definitiva...";
+      progressBar.style.width = '5%';
+      progressPercent.innerText = '5%';
+
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        try {
+          const htmlContent = e.target.result;
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlContent, 'text/html');
+          const rows = doc.querySelectorAll('tr');
+
+          if (rows.length <= 1) {
+            alert('Nenhum dado encontrado no arquivo.');
+            progressContainer.classList.add('hidden');
+            return;
+          }
+
+          const headers = Array.from(rows[0].querySelectorAll('th, td')).map(th => th.textContent.trim().toLowerCase());
+          
+          let idxData = headers.findIndex(h => h.includes('data'));
+          let idxNome = headers.findIndex(h => h.includes('nome'));
+          let idxFone = headers.findIndex(h => h.includes('telefone') || h.includes('whats') || h.includes('fone'));
+
+          if (idxData === -1) idxData = 0;
+          if (idxNome === -1) idxNome = 6;
+          if (idxFone === -1) idxFone = 7;
+
+          let existingPhones = new Set();
+          let existingEmails = new Set();
+          let existingNameDate = new Set();
+          
+          let from = 0;
+          let step = 1000;
+          let fetching = true;
+
+          while (fetching) {
+            const { data: chunk, error: errChunk } = await supabaseClient
+              .from('leads')
+              .select('whatsapp, notas_follow_up, nome, created_at')
+              .range(from, from + step - 1);
+
+            if (errChunk || !chunk || chunk.length === 0) {
+              fetching = false;
+            } else {
+              chunk.forEach(l => {
+                const normP = normalizePhone(l.whatsapp);
+                if (normP) existingPhones.add(normP);
+
+                const normE = normalizeEmail(l.notas_follow_up);
+                if (normE) existingEmails.add(normE);
+
+                if ((!l.whatsapp || l.whatsapp.includes('Não informado') || normalizePhone(l.whatsapp) === '') && l.nome && l.created_at) {
+                  const keyND = (l.nome.trim().toLowerCase()) + '_' + l.created_at.slice(0, 10);
+                  existingNameDate.add(keyND);
+                }
+              });
+              if (chunk.length < step) fetching = false;
+              else from += step;
+            }
+          }
+
+          let importedCount = 0;
+          let duplicatedCount = 0;
+          let allParsedLeads = [];
+
+          for (let i = 1; i < rows.length; i++) {
+            const cols = rows[i].querySelectorAll('td');
+            if (cols.length < 3) continue;
+
+            const dataRaw = cols[idxData] ? cols[idxData].textContent.trim() : '';
+            const nome = cols[idxNome] ? cols[idxNome].textContent.trim() : '';
+            const foneRaw = cols[idxFone] ? cols[idxFone].textContent.trim() : '';
+            
+            let msgFull = '';
+            for (let c = 0; c < cols.length; c++) {
+              msgFull += ' ' + cols[c].textContent;
+            }
+
+            const normFone = normalizePhone(foneRaw);
+            const normEmail = normalizeEmail(msgFull);
+
+            let parsedDate = new Date();
+            if (dataRaw) {
+              const parts = dataRaw.match(/(\d{2})\/(\d{2})\/(\d{4}).*?(\d{2}):(\d{2}):(\d{2})/);
+              if (parts) {
+                parsedDate = new Date(`${parts[3]}-${parts[2]}-${parts[1]}T${parts[4]}:${parts[5]}:${parts[6]}`);
+              }
+            }
+
+            const keyNameDate = (nome.trim().toLowerCase()) + '_' + parsedDate.toISOString().slice(0, 10);
+
+            // CORREÇÃO ROBUSTA: Se tiver Nome e Telefone válidos, processa mesmo que o e-mail venha em branco
+            if (!nome || nome === 'NaN' || !normFone) {
+              if (!nome || nome === 'NaN') continue;
+            }
+
+            const isDupPhone = normFone && existingPhones.has(normFone);
+            const isDupEmail = normEmail && existingEmails.has(normEmail);
+            const isDupNameDate = !normFone && existingNameDate.has(keyNameDate);
+
+            if (isDupPhone || isDupEmail || isDupNameDate) {
+              duplicatedCount++;
+              continue;
+            }
+
+            let origem = 'ImobiBrasil';
+            if (msgFull.toLowerCase().includes('olx')) origem = 'Portal OLX';
+            else if (msgFull.toLowerCase().includes('chaves')) origem = 'Chaves na Mão';
+            else if (msgFull.toLowerCase().includes('imóvelweb') || msgFull.toLowerCase().includes('imovelweb')) origem = 'ImóvelWeb';
+
+            let orcamento = null;
+            const precoMatch = msgFull.match(/R\$\s*([\d\.]+,\d{2})/);
+            if (precoMatch) {
+              orcamento = parseFloat(precoMatch[1].replace(/\./g, '').replace(',', '.'));
+            }
+
+            let tipo_imovel = 'Casa';
+            const msgLower = msgFull.toLowerCase();
+            if (msgLower.includes('apartamento')) tipo_imovel = 'Apartamento';
+            else if (msgLower.includes('terreno')) tipo_imovel = 'Terreno';
+            else if (msgLower.includes('comercial')) tipo_imovel = 'Comercial';
+            else if (msgLower.includes('cobertura')) tipo_imovel = 'Cobertura';
+
+            allParsedLeads.push({
+              nome: nome,
+              whatsapp: foneRaw || 'Não informado',
+              origem: origem,
+              tipo_imovel: tipo_imovel,
+              orcamento: orcamento,
+              forma_pagamento: 'a_vista',
+              possui_entrada: false,
+              valor_entrada: 0,
+              status: 'Novo',
+              created_at: parsedDate.toISOString(),
+              notas_follow_up: 'Importado da planilha. ' + (msgFull.length > 120 ? msgFull.substring(0, 120) + '...' : msgFull)
+            });
+
+            if (normFone) existingPhones.add(normFone);
+            if (normEmail) existingEmails.add(normEmail);
+            if (!normFone) existingNameDate.add(keyNameDate);
+          }
+
+          const totalToImport = allParsedLeads.length;
+          if (totalToImport === 0) {
+            alert(`Nenhum lead novo para importar.\n(Todos os registos do ficheiro já existiam na base - ${duplicatedCount} duplicados evitados com sucesso).`);
+            progressContainer.classList.add('hidden');
+            return;
+          }
+
+          const batchSize = 50;
+          for (let i = 0; i < totalToImport; i += batchSize) {
+            const batch = allParsedLeads.slice(i, i + batchSize);
+            const { error } = await supabaseClient.from('leads').insert(batch);
+            
+            if (!error) {
+              importedCount += batch.length;
+            }
+
+            const percent = Math.min(100, Math.round(((i + batch.length) / totalToImport) * 100));
+            progressBar.style.width = percent + '%';
+            progressPercent.innerText = percent + '%';
+            progressText.innerText = `A importar lote: ${importedCount} de ${totalToImport} leads...`;
+
+            await new Promise(r => setTimeout(r, 300));
+          }
+
+          alert(`Importação concluída com sucesso!\n✅ Novos leads adicionados: ${importedCount}\n🛡️ Duplicados bloqueados: ${duplicatedCount}`);
+          progressContainer.classList.add('hidden');
+          loadLeadsAndCount();
+        } catch (err) {
+          alert('Erro ao processar ficheiro: ' + err.message);
+          progressContainer.classList.add('hidden');
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    async function deleteLead(id) {
+      if (!confirm('Deseja excluir este lead?')) return;
+      const { error } = await supabaseClient.from('leads').delete().eq('id', id);
+      if (!error) loadLeadsAndCount();
+    }
+
+    window.onload = initSupabase;
+  </script>
+</body>
+</html>

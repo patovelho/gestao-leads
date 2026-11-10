@@ -261,7 +261,6 @@
         document.getElementById('notas_follow_up').value = lead.notas_follow_up || '';
         
         if (lead.proximo_follow_up) {
-          // Garante a exibição perfeita da hora local sem subtrair fuso horário
           const rawDt = lead.proximo_follow_up.replace('Z', '');
           document.getElementById('proximo_follow_up').value = rawDt.slice(0, 16);
         }
@@ -270,21 +269,40 @@
       toggleModal('leadModal');
     }
 
+    // TRAVA INTELIGENTE AO SALVAR MANUALMENTE: Impede duplicar se o telefone já existe na base
     async function saveLead(e) {
       e.preventDefault();
       if (!supabaseClient) return alert('Configure o Supabase primeiro.');
 
       const id = document.getElementById('leadId').value;
+      const foneInput = document.getElementById('whatsapp').value;
+      const normInputPhone = normalizePhone(foneInput);
+
+      // Se for um lead novo, verifica se o telefone já está cadastrado no banco antes de salvar
+      if (!id && normInputPhone) {
+        const { data: existingCheck } = await supabaseClient
+          .from('leads')
+          .select('id, whatsapp, nome')
+          .ilike('whatsapp', `%${normInputPhone.slice(-8)}%`); // busca pelos últimos 8 dígitos para garantir
+
+        if (existingCheck && existingCheck.length > 0) {
+          // Confere rigidamente se algum bate com os dígitos normalizados
+          const duplicateFound = existingCheck.some(l => normalizePhone(l.whatsapp) === normInputPhone);
+          if (duplicateFound) {
+            alert(`⚠️ Atenção: Este número de telemóvel já está cadastrado na base de dados para o lead "${existingCheck[0].nome}"!`);
+            return;
+          }
+        }
+      }
+
       const forma = document.getElementById('forma_pagamento').value;
       const valEntrada = document.getElementById('valor_entrada').value;
       const rawFollowUp = document.getElementById('proximo_follow_up').value;
-
-      // Mantém a hora exatamente igual à digitada sem conversão de fuso horário
       const formattedFollowUp = rawFollowUp ? `${rawFollowUp}:00` : null;
 
       const payload = {
         nome: document.getElementById('nome').value,
-        whatsapp: document.getElementById('whatsapp').value,
+        whatsapp: foneInput,
         origem: document.getElementById('origem').value,
         tipo_imovel: document.getElementById('tipo_imovel').value,
         orcamento: document.getElementById('orcamento').value ? parseFloat(document.getElementById('orcamento').value) : null,
@@ -403,7 +421,6 @@
       
       let startDate = new Date();
       if (dataIso) {
-        // Converte a string sem o desfasamento UTC
         const cleanedStr = dataIso.replace('Z', '');
         startDate = new Date(cleanedStr);
       }
@@ -420,7 +437,6 @@
       const container = document.getElementById('leadsList');
       container.innerHTML = '';
 
-      // Pega data de hoje local (YYYY-MM-DD)
       const todayDate = new Date();
       const localTodayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
 
@@ -456,13 +472,11 @@
 
         let followUpBadge = '';
         if (lead.proximo_follow_up) {
-          // Extrai partes diretamente da string sem passar pela conversão UTC
           const dtParts = lead.proximo_follow_up.replace('Z', '').split('T');
           const datePart = dtParts[0].split('-');
           const timePart = dtParts[1] ? dtParts[1].slice(0, 5) : '00:00';
           
           const dtDisplay = `${datePart[2]}/${datePart[1]}/${datePart[0]}`;
-          
           const isPast = new Date(lead.proximo_follow_up.replace('Z', '')) < new Date();
 
           followUpBadge = `
@@ -519,6 +533,7 @@
       });
     }
 
+    // Normalização rigorosa: remove hífens, parênteses, espaços e o DDI 55
     function normalizePhone(raw) {
       if (!raw) return '';
       let clean = raw.replace(/\D/g, '');

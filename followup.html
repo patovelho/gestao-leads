@@ -1,1 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Central de Follow-up - André Reis Imóveis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-10">
 
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-10 shadow-lg">
+    <div class="max-w-5xl mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-600 transition flex items-center gap-1">
+          ⬅️ Hub
+        </a>
+        <h1 class="text-xl font-bold text-amber-400 flex items-center gap-2">
+          🔔 Central de Follow-up <span id="totalBadge" class="text-xs bg-amber-900/60 text-amber-300 border border-amber-700/50 px-2.5 py-0.5 rounded-full">0 agendados</span>
+        </h1>
+      </div>
+      <button onclick="toggleModal('configModal')" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-1">
+        ⚙️ Config
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 space-y-4">
+
+    <!-- Actions & Search Bar -->
+    <div class="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+      <div class="text-xs text-slate-400">
+        📌 Exibindo apenas leads ativos com follow-up agendado ou status em andamento.
+      </div>
+      
+      <!-- Caixa de Busca por Nome, Celular ou E-mail -->
+      <div class="relative w-full sm:w-80">
+        <input type="search" id="searchInput" oninput="debounceSearch()" placeholder="Buscar por nome, celular ou e-mail..." class="bg-slate-800 border border-slate-700 rounded-xl pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-amber-500 w-full text-white">
+        <button onclick="clearSearch()" title="Limpar busca" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-sm bg-slate-700/60 hover:bg-slate-700 w-6 h-6 rounded-full flex items-center justify-center transition">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs de Filtro por Prazo -->
+    <div class="flex gap-2 overflow-x-auto pb-2 border-b border-slate-800 text-xs font-medium no-scrollbar">
+      <button onclick="setFilter('todos')" id="tab-todos" class="tab-btn px-3 py-1.5 rounded-lg bg-amber-600 text-white whitespace-nowrap">Todos os Ativos</button>
+      <button onclick="setFilter('atrasados')" id="tab-atrasados" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">⚠️ Atrasados</button>
+      <button onclick="setFilter('hoje')" id="tab-hoje" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">🔔 Hoje</button>
+      <button onclick="setFilter('proximos')" id="tab-proximos" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">📅 Próximos Dias</button>
+    </div>
+
+    <!-- Lista de Follow-ups -->
+    <div id="followupList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <p class="col-span-full text-center text-slate-500 py-8 text-sm">Carregando follow-ups...</p>
+    </div>
+  </main>
+
+  <!-- Modal Atualizar Follow-up / Status -->
+  <div id="editModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-slate-100">Atualizar Lead / Agendar Retorno</h3>
+        <button onclick="toggleModal('editModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+
+      <form id="editForm" onsubmit="saveFollowUpUpdate(event)" class="space-y-3 text-sm">
+        <input type="hidden" id="editLeadId">
+        
+        <div>
+          <label class="block text-slate-400 mb-1">Cliente</label>
+          <input type="text" id="editNome" readonly class="w-full bg-slate-900/50 border border-slate-700/60 rounded-xl p-2.5 text-slate-400 cursor-not-allowed">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Status do Funil</label>
+            <select id="editStatus" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-amber-500 focus:outline-none">
+              <option value="Novo">Novo Lead</option>
+              <option value="Em Contato">Em Contato</option>
+              <option value="Visita Agendada">Visita Agendada</option>
+              <option value="Proposta">Proposta Apresentada</option>
+              <option value="Fechado">Venda Fechada</option>
+              <option value="Perdido">Perdido / Inativo</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Próximo Follow-up</label>
+            <input type="datetime-local" id="editProximoFollowUp" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-amber-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Notas / Observações do Atendimento</label>
+          <textarea id="editNotas" rows="4" placeholder="Anote os detalhes do último contato, respostas do cliente ou próximos passos..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-amber-500 focus:outline-none"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-medium py-3 rounded-xl shadow-lg shadow-amber-600/20 active:scale-95 transition">
+          Salvar Alterações
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Config Supabase -->
+  <div id="configModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-slate-100">Configuração Supabase</h3>
+        <button onclick="toggleModal('configModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-slate-400 mb-1">Project URL</label>
+          <input type="text" id="cfgUrl" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">API Key</label>
+          <input type="password" id="cfgKey" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <button onclick="saveConfig()" class="w-full bg-amber-600 hover:bg-amber-500 text-white font-medium py-2.5 rounded-xl">
+          Salvar Conexão
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let supabaseClient = null;
+    let currentLeads = [];
+    let currentFilter = 'todos';
+    let searchTimeout = null;
+
+    function normalizePhone(raw) {
+      if (!raw) return '';
+      let clean = raw.replace(/\D/g, '');
+      if (clean.startsWith('55') && clean.length > 11) clean = clean.substring(2);
+      return clean;
+    }
+
+    function extractEmail(text) {
+      if (!text) return '';
+      const m = text.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/);
+      return m ? m[1] : '';
+    }
+
+    function initSupabase() {
+      const url = localStorage.getItem('sp_url');
+      const key = localStorage.getItem('sp_key');
+      if (url && key) {
+        supabaseClient = supabase.createClient(url, key);
+        document.getElementById('cfgUrl').value = url;
+        document.getElementById('cfgKey').value = key;
+        loadFollowUps();
+      } else {
+        toggleModal('configModal');
+      }
+    }
+
+    function saveConfig() {
+      const url = document.getElementById('cfgUrl').value.trim();
+      const key = document.getElementById('cfgKey').value.trim();
+      if (url && key) {
+        localStorage.setItem('sp_url', url);
+        localStorage.setItem('sp_key', key);
+        supabaseClient = supabase.createClient(url, key);
+        toggleModal('configModal');
+        loadFollowUps();
+      }
+    }
+
+    function toggleModal(id) {
+      const m = document.getElementById(id);
+      m.classList.toggle('hidden');
+      m.classList.toggle('flex');
+    }
+
+    async function loadFollowUps() {
+      if (!supabaseClient) return;
+
+      const { data, error } = await supabaseClient
+        .from('leads')
+        .select('*')
+        .neq('status', 'Perdido')
+        .order('proximo_follow_up', { ascending: true, nullsFirst: false });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      currentLeads = data || [];
+      document.getElementById('totalBadge').innerText = `${currentLeads.length} ativos`;
+      renderFollowUps(currentLeads);
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-amber-600', 'text-white');
+        btn.classList.add('bg-slate-800', 'text-slate-400');
+      });
+      const activeBtn = document.getElementById(`tab-${filter}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-slate-800', 'text-slate-400');
+        activeBtn.classList.add('bg-amber-600', 'text-white');
+      }
+      renderFollowUps(currentLeads);
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => performSearch(), 300);
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('searchInput');
+      input.value = '';
+      renderFollowUps(currentLeads);
+      input.focus();
+    }
+
+    function performSearch() {
+      const searchVal = document.getElementById('searchInput').value.trim();
+      if (!searchVal) {
+        renderFollowUps(currentLeads);
+        return;
+      }
+
+      const cleanDigits = normalizePhone(searchVal);
+      const textQuery = searchVal.toLowerCase();
+
+      const filtered = currentLeads.filter(l => {
+        const normPhone = normalizePhone(l.whatsapp);
+        const nameMatch = (l.nome || '').toLowerCase().includes(textQuery);
+        const emailMatch = (extractEmail(l.notas_follow_up) || '').toLowerCase().includes(textQuery);
+        const phoneMatch = cleanDigits && normPhone.includes(cleanDigits);
+
+        return nameMatch || emailMatch || phoneMatch;
+      });
+
+      renderFollowUps(filtered);
+    }
+
+    function addToGoogleCalendar(nome, fone, tipo, dataIso, notas) {
+      const title = encodeURIComponent(`Visita/Follow-up: ${nome} (${tipo || 'Imóvel'})`);
+      const details = encodeURIComponent(`Cliente: ${nome}\nWhatsApp: ${fone}\nObservações: ${notas || 'N/I'}`);
+      
+      let startDate = new Date();
+      if (dataIso) {
+        const cleanedStr = dataIso.replace('Z', '');
+        startDate = new Date(cleanedStr);
+      }
+      let endDate = new Date(startDate.getTime() + 60*60*1000);
+
+      const fmtGCalDate = d => d.toISOString().replace(/-|:|\.\d\d\d/g,"");
+      const dates = `${fmtGCalDate(startDate)}/${fmtGCalDate(endDate)}`;
+
+      const url = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&details=${details}&dates=${dates}`;
+      window.open(url, '_blank');
+    }
+
+    function openEditModal(lead) {
+      document.getElementById('editLeadId').value = lead.id;
+      document.getElementById('editNome').value = lead.nome || '';
+      document.getElementById('editStatus').value = lead.status || 'Em Contato';
+      document.getElementById('editNotas').value = lead.notas_follow_up || '';
+      
+      if (lead.proximo_follow_up) {
+        const rawDt = lead.proximo_follow_up.replace('Z', '');
+        document.getElementById('editProximoFollowUp').value = rawDt.slice(0, 16);
+      } else {
+        document.getElementById('editProximoFollowUp').value = '';
+      }
+      
+      toggleModal('editModal');
+    }
+
+    async function saveFollowUpUpdate(e) {
+      e.preventDefault();
+      if (!supabaseClient) return;
+
+      const id = document.getElementById('editLeadId').value;
+      const rawFollowUp = document.getElementById('editProximoFollowUp').value;
+      const formattedFollowUp = rawFollowUp ? `${rawFollowUp}:00` : null;
+
+      const payload = {
+        status: document.getElementById('editStatus').value,
+        proximo_follow_up: formattedFollowUp,
+        notas_follow_up: document.getElementById('editNotas').value
+      };
+
+      const { error } = await supabaseClient.from('leads').update(payload).eq('id', id);
+
+      if (error) {
+        alert('Erro ao atualizar: ' + error.message);
+      } else {
+        toggleModal('editModal');
+        loadFollowUps();
+      }
+    }
+
+    function renderFollowUps(list) {
+      const container = document.getElementById('followupList');
+      container.innerHTML = '';
+
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+      const filtered = list.filter(l => {
+        if (!l.proximo_follow_up) return currentFilter === 'todos';
+        
+        const followDateStr = l.proximo_follow_up.slice(0, 10);
+        const isPast = new Date(l.proximo_follow_up.replace('Z', '')) < now && followDateStr !== todayStr;
+        const isToday = followDateStr === todayStr;
+
+        if (currentFilter === 'atrasados') return isPast;
+        if (currentFilter === 'hoje') return isToday;
+        if (currentFilter === 'proximos') return !isPast && !isToday;
+        
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="col-span-full text-center text-slate-500 py-8 text-sm">Nenhum follow-up encontrado para este filtro.</p>`;
+        return;
+      }
+
+      filtered.forEach(lead => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-800 border border-slate-700/80 rounded-xl p-4 space-y-3 shadow-md flex flex-col justify-between';
+
+        const cleanPhone = normalizePhone(lead.whatsapp);
+        const waUrl = cleanPhone ? `https://wa.me/55${cleanPhone}` : '#';
+        const email = extractEmail(lead.notas_follow_up);
+        const mailtoUrl = email ? `mailto:${email}` : null;
+
+        let statusBadge = 'bg-blue-900/40 text-blue-300 border-blue-700/50';
+        if (lead.status === 'Visita Agendada') statusBadge = 'bg-purple-900/40 text-purple-300 border-purple-700/50';
+        if (lead.status === 'Proposta') statusBadge = 'bg-emerald-900/40 text-emerald-300 border-emerald-700/50';
+
+        let followUpHeader = '<span class="text-xs text-slate-500">Sem data definida</span>';
+        if (lead.proximo_follow_up) {
+          const dtParts = lead.proximo_follow_up.replace('Z', '').split('T');
+          const datePart = dtParts[0].split('-');
+          const timePart = dtParts[1] ? dtParts[1].slice(0, 5) : '00:00';
+          const dtDisplay = `${datePart[2]}/${datePart[1]}/${datePart[0]}`;
+          
+          const dtObj = new Date(lead.proximo_follow_up.replace('Z', ''));
+          const isPast = dtObj < now && dtParts[0] !== todayStr;
+          const isToday = dtParts[0] === todayStr;
+
+          if (isPast) {
+            followUpHeader = `<span class="text-xs font-semibold text-rose-400 bg-rose-950/50 px-2.5 py-1 rounded-md border border-rose-800/60">⚠️ Atrasado: ${dtDisplay} às ${timePart}</span>`;
+          } else if (isToday) {
+            followUpHeader = `<span class="text-xs font-semibold text-amber-300 bg-amber-950/50 px-2.5 py-1 rounded-md border border-amber-800/60">🔔 Hoje: ${timePart}</span>`;
+          } else {
+            followUpHeader = `<span class="text-xs font-medium text-slate-300 bg-slate-900 px-2.5 py-1 rounded-md border border-slate-700">🗓️ Retorno: ${dtDisplay} às ${timePart}</span>`;
+          }
+        }
+
+        card.innerHTML = `
+          <div class="space-y-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <h4 class="font-bold text-base text-slate-100">${lead.nome}</h4>
+                <p class="text-xs text-slate-400 mt-0.5">📍 Interessado em: ${lead.tipo_imovel || 'Imóvel'}</p>
+              </div>
+              <span class="text-xs px-2.5 py-1 rounded-full font-medium border ${statusBadge}">
+                ${lead.status || 'Novo'}
+              </span>
+            </div>
+
+            <!-- Quadradinho com apenas 4 dados essenciais -->
+            <div class="bg-slate-900/80 p-3 rounded-xl border border-slate-700/60 space-y-2 text-xs">
+              <div class="flex justify-between items-center">
+                <span class="text-slate-400">👤 Nome:</span>
+                <span class="font-semibold text-slate-200">${lead.nome}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-slate-400">📱 Celular:</span>
+                <span class="font-mono text-slate-200">${lead.whatsapp || 'Não informado'}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-slate-400">📧 E-mail:</span>
+                <span class="font-mono text-slate-200 truncate max-w-[200px]">${email || 'Não informado'}</span>
+              </div>
+              <div class="flex justify-between items-center pt-1 border-t border-slate-800">
+                <span class="text-slate-400">⏰ Agendamento:</span>
+                <div>${followUpHeader}</div>
+              </div>
+            </div>
+
+            ${lead.notas_follow_up ? `<p class="text-xs text-slate-400 italic bg-slate-900/40 p-2 rounded border border-slate-800">💬 ${lead.notas_follow_up}</p>` : ''}
+          </div>
+
+          <!-- Botões de Ação Direta -->
+          <div class="flex flex-wrap gap-2 justify-between items-center pt-3 border-t border-slate-700/60 text-xs mt-2">
+            <div class="flex gap-2">
+              <a href="${waUrl}" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm">
+                💬 WhatsApp
+              </a>
+              ${email ? `
+                <a href="${mailtoUrl}" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-sm">
+                  📧 E-mail
+                </a>
+              ` : ''}
+            </div>
+
+            <div class="flex gap-1.5">
+              ${lead.proximo_follow_up ? `
+                <button onclick="addToGoogleCalendar('${lead.nome.replace(/'/g, "\\'")}', '${lead.whatsapp || ''}', '${lead.tipo_imovel || 'Imóvel'}', '${lead.proximo_follow_up}', '${(lead.notas_follow_up || '').replace(/'/g, "\\'")}')" title="Adicionar à Google Agenda" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg">
+                  🗓️ Agenda
+                </button>
+              ` : ''}
+              <button onclick='openEditModal(${JSON.stringify(lead)})' class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded-lg font-medium shadow-sm">
+                ✏️ Atualizar
+              </button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    window.onload = initSupabase;
+  </script>
+</body>
+</html>

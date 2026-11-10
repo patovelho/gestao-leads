@@ -350,7 +350,7 @@
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(300); // Aumentado para carregar até 300 leads recentes na memória para busca instantânea
 
       if (error) {
         console.error(error);
@@ -379,7 +379,7 @@
       clearTimeout(searchTimeout);
       searchTimeout = setTimeout(() => {
         performSearch();
-      }, 400);
+      }, 300);
     }
 
     function clearSearch() {
@@ -389,7 +389,7 @@
       input.focus();
     }
 
-    // BUSCA INTELIGENTE BLINDADA: Funciona com qualquer pedaço do número (com 55, DDD ou hífens)
+    // BUSCA INSTANTÂNEA LOCAL: Filtra perfeitamente na memória, encontrando qualquer pedaço do número ou nome
     async function performSearch() {
       const searchVal = document.getElementById('searchInput').value.trim();
       if (!searchVal) {
@@ -397,30 +397,22 @@
         return;
       }
 
-      const container = document.getElementById('leadsList');
-      container.innerHTML = `<p class="text-center text-slate-500 py-8 text-sm">Pesquisando na base de dados...</p>`;
+      const cleanSearchQuery = normalizePhone(searchVal);
+      const searchNameQuery = searchVal.toLowerCase();
 
-      const cleanDigits = normalizePhone(searchVal);
-      
-      let query = supabaseClient.from('leads').select('*').order('created_at', { ascending: false });
+      // Se já temos leads carregados, filtra diretamente na memória com total precisão
+      if (currentLeads.length > 0) {
+        const filteredResults = currentLeads.filter(l => {
+          const normPhone = normalizePhone(l.whatsapp);
+          const leadName = (l.nome || '').toLowerCase();
 
-      if (cleanDigits.length >= 3) {
-        // Busca inteligente: filtra no banco pelos dígitos normalizados (excluindo DDI/hífens)
-        query = query.ilike('whatsapp', `%${cleanDigits}%`);
-      } else {
-        query = query.ilike('nome', `%${searchVal}%`);
+          const matchPhone = cleanSearchQuery && normPhone.includes(cleanSearchQuery);
+          const matchName = searchNameQuery && leadName.includes(searchNameQuery);
+
+          return matchPhone || matchName;
+        });
+        renderLeads(filteredResults);
       }
-
-      const { data, error } = await query.limit(100);
-
-      if (error) {
-        console.error(error);
-        container.innerHTML = `<p class="text-center text-rose-400 py-8 text-sm">Erro ao pesquisar.</p>`;
-        return;
-      }
-
-      currentLeads = data || [];
-      renderLeads(currentLeads);
     }
 
     function addToGoogleCalendar(nome, fone, tipo, dataIso, notas) {

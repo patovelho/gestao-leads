@@ -31,7 +31,7 @@
           ➕ Novo Lead
         </button>
         <label id="importLabel" class="bg-emerald-600 hover:bg-emerald-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-95 transition cursor-pointer">
-          📥 Importar Planilha (Blindagem Perfeita)
+          📥 Importar Planilha (Blindagem Definitiva)
           <input type="file" id="fileImport" accept=".xls,.xlsx,.html,.htm,.csv" class="hidden" onchange="importFile(event)">
         </label>
       </div>
@@ -522,7 +522,7 @@
       const progressPercent = document.getElementById('progressPercent');
       
       progressContainer.classList.remove('hidden');
-      progressText.innerText = "A ler a base de dados para blindagem perfeita...";
+      progressText.innerText = "A ler a base de dados para blindagem definitiva...";
       progressBar.style.width = '5%';
       progressPercent.innerText = '5%';
 
@@ -553,7 +553,7 @@
           // Buscar TODOS os registos existentes no Supabase em lotes
           let existingPhones = new Set();
           let existingEmails = new Set();
-          let existingNameDate = new Set(); // Para leads sem fone (Nome + Data exata)
+          let existingNameDate = new Set(); // Para leads sem fone (Nome + Data YYYY-MM-DD)
           
           let from = 0;
           let step = 1000;
@@ -575,9 +575,9 @@
                 const normE = normalizeEmail(l.notas_follow_up);
                 if (normE) existingEmails.add(normE);
 
-                // Se não tem fone, guarda chave Nome + Data
+                // Se não tem fone, guarda chave Nome + Data (apenas YYYY-MM-DD)
                 if ((!l.whatsapp || l.whatsapp.includes('Não informado') || normalizePhone(l.whatsapp) === '') && l.nome && l.created_at) {
-                  const keyND = (l.nome.trim().toLowerCase()) + '_' + l.created_at.slice(0, 19);
+                  const keyND = (l.nome.trim().toLowerCase()) + '_' + l.created_at.slice(0, 10);
                   existingNameDate.add(keyND);
                 }
               });
@@ -614,11 +614,11 @@
               }
             }
 
-            const keyNameDate = (nome.trim().toLowerCase()) + '_' + parsedDate.toISOString().slice(0, 19);
+            // Chave por Nome + Data (apenas YYYY-MM-DD para ignorar diferenças de segundos/horas)
+            const keyNameDate = (nome.trim().toLowerCase()) + '_' + parsedDate.toISOString().slice(0, 10);
 
             if (!nome || nome === 'NaN') continue;
 
-            // Blindagem tripla: Telefone, E-mail ou Nome + Data exata (para quem não tem fone)
             const isDupPhone = normFone && existingPhones.has(normFone);
             const isDupEmail = normEmail && existingEmails.has(normEmail);
             const isDupNameDate = !normFone && existingNameDate.has(keyNameDate);

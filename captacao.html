@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Captação de Imóveis - André Reis Imóveis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-10">
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-10 shadow-lg">
+    <div class="max-w-5xl mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-600 transition">
+          ⬅️ Hub
+        </a>
+        <h1 class="text-xl font-bold text-purple-400 flex items-center gap-2">
+          🔍 Captação de Imóveis <span id="totalBadge" class="text-xs bg-purple-900/60 text-purple-300 border border-purple-700/50 px-2.5 py-0.5 rounded-full">0 captações</span>
+        </h1>
+      </div>
+      <button onclick="toggleModal('configModal')" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-1">
+        ⚙️ Config
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 space-y-4">
+
+    <!-- Actions & Search Bar -->
+    <div class="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+      <button onclick="openModal()" class="bg-purple-600 hover:bg-purple-500 font-medium px-4 py-2.5 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 active:scale-95 transition">
+        ➕ Nova Captação
+      </button>
+      
+      <!-- Caixa de Busca Inteligente por Nome ou Telefone -->
+      <div class="relative w-full sm:w-80">
+        <input type="search" id="searchInput" oninput="debounceSearch()" placeholder="Buscar por nome, telefone, bairro ou ref..." class="bg-slate-800 border border-slate-700 rounded-xl pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-purple-500 w-full text-white">
+        <button onclick="clearSearch()" title="Limpar busca" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-sm bg-slate-700/60 hover:bg-slate-700 w-6 h-6 rounded-full flex items-center justify-center transition">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- Filtros de Status -->
+    <div class="flex gap-2 overflow-x-auto pb-2 border-b border-slate-800 text-xs font-medium no-scrollbar">
+      <button onclick="setFilter('todos')" id="tab-todos" class="tab-btn px-3 py-1.5 rounded-lg bg-purple-600 text-white whitespace-nowrap">Todos</button>
+      <button onclick="setFilter('Aguardando Vistoria')" id="tab-Aguardando Vistoria" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">📷 Vistoria/PTAM</button>
+      <button onclick="setFilter('Em Análise/Doc')" id="tab-Em Análise/Doc" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">📄 Documentação</button>
+      <button onclick="setFilter('Aprovada')" id="tab-Aprovada" class="tab-btn px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">✅ Aprovadas/Prontas</button>
+    </div>
+
+    <!-- Lista de Captações -->
+    <div id="captacoesList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <p class="col-span-full text-center text-slate-500 py-8 text-sm">Carregando captações...</p>
+    </div>
+  </main>
+
+  <!-- Modal Form Captação -->
+  <div id="captacaoModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 id="modalTitle" class="font-bold text-lg text-slate-100">Nova Captação</h3>
+        <button onclick="toggleModal('captacaoModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+
+      <form id="captacaoForm" onsubmit="saveCaptacao(event)" class="space-y-3 text-sm">
+        <input type="hidden" id="captacaoId">
+        
+        <div>
+          <label class="block text-slate-400 mb-1">Nome do Proprietário</label>
+          <input type="text" id="nome_proprietario" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">WhatsApp / Telefone</label>
+            <input type="text" id="whatsapp" placeholder="22999999999" required class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Cód. / Referência</label>
+            <input type="text" id="codigo" placeholder="ex: CAP-001" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Tipo de Imóvel</label>
+            <select id="tipo_imovel" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none">
+              <option value="Casa">Casa</option>
+              <option value="Terreno">Terreno</option>
+              <option value="Apartamento">Apartamento</option>
+              <option value="Comercial">Comercial</option>
+              <option value="Sítio/Chácara">Sítio / Chácara</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Bairro / Região</label>
+            <input type="text" id="bairro" placeholder="ex: Jaconé, Itaúna" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Endereço Completo</label>
+          <input type="text" id="endereco" placeholder="Rua, Número, Quadra/Lote" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-400 mb-1">Valor Pretendido (R$)</label>
+            <input type="number" id="valor_pretendido" placeholder="ex: 280000" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Status da Captação</label>
+            <select id="status" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none">
+              <option value="Aguardando Vistoria">Aguardando Vistoria/Fotos</option>
+              <option value="Em Avaliação (PTAM)">Em Avaliação (PTAM)</option>
+              <option value="Em Análise/Doc">Em Análise Documental</option>
+              <option value="Aprovada">Aprovada (Ir para Carteira)</option>
+              <option value="Cancelada">Desistiu / Cancelada</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Notas / Detalhes do Proprietário</label>
+          <textarea id="notas" rows="3" placeholder="Horários para vistoria, expectativas do cliente, situação documental..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-medium py-3 rounded-xl shadow-lg shadow-purple-600/20 active:scale-95 transition">
+          Salvar Captação
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Config Supabase -->
+  <div id="configModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-slate-100">Configuração Supabase</h3>
+        <button onclick="toggleModal('configModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-slate-400 mb-1">Project URL</label>
+          <input type="text" id="cfgUrl" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">API Key</label>
+          <input type="password" id="cfgKey" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <button onclick="saveConfig()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-medium py-2.5 rounded-xl">
+          Salvar Conexão
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let supabaseClient = null;
+    let currentCaptacoes = [];
+    let currentFilter = 'todos';
+    let searchTimeout = null;
+
+    function normalizePhone(raw) {
+      if (!raw) return '';
+      let clean = raw.replace(/\D/g, '');
+      if (clean.startsWith('55') && clean.length > 11) clean = clean.substring(2);
+      return clean;
+    }
+
+    function initSupabase() {
+      const url = localStorage.getItem('sp_url');
+      const key = localStorage.getItem('sp_key');
+      if (url && key) {
+        supabaseClient = supabase.createClient(url, key);
+        document.getElementById('cfgUrl').value = url;
+        document.getElementById('cfgKey').value = key;
+        loadCaptacoes();
+      } else {
+        toggleModal('configModal');
+      }
+    }
+
+    function saveConfig() {
+      const url = document.getElementById('cfgUrl').value.trim();
+      const key = document.getElementById('cfgKey').value.trim();
+      if (url && key) {
+        localStorage.setItem('sp_url', url);
+        localStorage.setItem('sp_key', key);
+        supabaseClient = supabase.createClient(url, key);
+        toggleModal('configModal');
+        loadCaptacoes();
+      }
+    }
+
+    function toggleModal(id) {
+      const m = document.getElementById(id);
+      m.classList.toggle('hidden');
+      m.classList.toggle('flex');
+    }
+
+    function openModal(item = null) {
+      document.getElementById('captacaoForm').reset();
+      document.getElementById('captacaoId').value = '';
+      document.getElementById('modalTitle').innerText = item ? 'Editar Captação' : 'Nova Captação';
+
+      if (item) {
+        document.getElementById('captacaoId').value = item.id;
+        document.getElementById('nome_proprietario').value = item.nome_proprietario || '';
+        document.getElementById('whatsapp').value = item.whatsapp || '';
+        document.getElementById('codigo').value = item.codigo || '';
+        document.getElementById('tipo_imovel').value = item.tipo_imovel || 'Casa';
+        document.getElementById('bairro').value = item.bairro || '';
+        document.getElementById('endereco').value = item.endereco || '';
+        document.getElementById('valor_pretendido').value = item.valor_pretendido || '';
+        document.getElementById('status').value = item.status || 'Aguardando Vistoria';
+        document.getElementById('notas').value = item.notas || '';
+      }
+      toggleModal('captacaoModal');
+    }
+
+    async function saveCaptacao(e) {
+      e.preventDefault();
+      if (!supabaseClient) return alert('Configure o Supabase primeiro.');
+
+      const id = document.getElementById('captacaoId').value;
+      const payload = {
+        nome_proprietario: document.getElementById('nome_proprietario').value,
+        whatsapp: document.getElementById('whatsapp').value,
+        codigo: document.getElementById('codigo').value,
+        tipo_imovel: document.getElementById('tipo_imovel').value,
+        bairro: document.getElementById('bairro').value,
+        endereco: document.getElementById('endereco').value,
+        valor_pretendido: document.getElementById('valor_pretendido').value ? parseFloat(document.getElementById('valor_pretendido').value) : null,
+        status: document.getElementById('status').value,
+        notas: document.getElementById('notas').value
+      };
+
+      let error;
+      if (id) {
+        ({ error } = await supabaseClient.from('captacoes').update(payload).eq('id', id));
+      } else {
+        ({ error } = await supabaseClient.from('captacoes').insert([payload]));
+      }
+
+      if (error) alert('Erro ao salvar: ' + error.message);
+      else {
+        toggleModal('captacaoModal');
+        loadCaptacoes();
+      }
+    }
+
+    async function loadCaptacoes() {
+      if (!supabaseClient) return;
+
+      const { data, error } = await supabaseClient
+        .from('captacoes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) return console.error(error);
+
+      currentCaptacoes = data || [];
+      document.getElementById('totalBadge').innerText = `${currentCaptacoes.length} captações`;
+      renderCaptacoes(currentCaptacoes);
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('bg-purple-600', 'text-white');
+        btn.classList.add('bg-slate-800', 'text-slate-400');
+      });
+      const activeBtn = document.getElementById(`tab-${filter}`);
+      if (activeBtn) {
+        activeBtn.classList.remove('bg-slate-800', 'text-slate-400');
+        activeBtn.classList.add('bg-purple-600', 'text-white');
+      }
+      renderCaptacoes(currentCaptacoes);
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => performSearch(), 300);
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('searchInput');
+      input.value = '';
+      renderCaptacoes(currentCaptacoes);
+      input.focus();
+    }
+
+    // BUSCA BLINDADA POR NOME, TELEFONE NORMALIZADO, BAIRRO OU CÓDIGO
+    function performSearch() {
+      const searchVal = document.getElementById('searchInput').value.trim();
+      if (!searchVal) {
+        renderCaptacoes(currentCaptacoes);
+        return;
+      }
+
+      const cleanDigits = normalizePhone(searchVal);
+      const textQuery = searchVal.toLowerCase();
+
+      const filtered = currentCaptacoes.filter(c => {
+        const normPhone = normalizePhone(c.whatsapp);
+        const nameMatch = (c.nome_proprietario || '').toLowerCase().includes(textQuery);
+        const bairroMatch = (c.bairro || '').toLowerCase().includes(textQuery);
+        const codigoMatch = (c.codigo || '').toLowerCase().includes(textQuery);
+        const phoneMatch = cleanDigits && normPhone.includes(cleanDigits);
+
+        return nameMatch || bairroMatch || codigoMatch || phoneMatch;
+      });
+
+      renderCaptacoes(filtered);
+    }
+
+    function renderCaptacoes(list) {
+      const container = document.getElementById('captacoesList');
+      container.innerHTML = '';
+
+      const filtered = list.filter(c => {
+        if (currentFilter !== 'todos') return (c.status || 'Aguardando Vistoria') === currentFilter;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="col-span-full text-center text-slate-500 py-8 text-sm">Nenhuma captação encontrada.</p>`;
+        return;
+      }
+
+      filtered.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-800 border border-slate-700/80 rounded-xl p-4 space-y-3 shadow-md flex flex-col justify-between';
+
+        const fmtMoeda = v => v ? `R$ ${Number(v).toLocaleString('pt-BR')}` : 'Não inf.';
+        const cleanPhone = normalizePhone(item.whatsapp);
+        const waUrl = cleanPhone ? `https://wa.me/55${cleanPhone}` : '#';
+
+        card.innerHTML = `
+          <div class="space-y-2">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="text-xs font-mono bg-slate-900 text-purple-400 px-2 py-0.5 rounded border border-slate-700">${item.codigo || 'CAP'}</span>
+                <h4 class="font-bold text-base text-slate-100 mt-1">${item.nome_proprietario}</h4>
+              </div>
+              <span class="text-xs px-2.5 py-1 rounded-full font-medium border bg-purple-900/40 text-purple-300 border-purple-700/50">
+                ${item.status || 'Aguardando Vistoria'}
+              </span>
+            </div>
+
+            <div class="text-xs text-slate-300 space-y-1 bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
+              <p>📍 <strong>Imóvel:</strong> ${item.tipo_imovel || 'Imóvel'} em ${item.bairro || 'Saquarema'}</p>
+              <p>🏠 <strong>Endereço:</strong> ${item.endereco || 'Não especificado'}</p>
+              <p>📱 <strong>WhatsApp:</strong> ${item.whatsapp || 'N/I'}</p>
+            </div>
+
+            <div class="flex justify-between items-center bg-slate-900/80 p-2 rounded-lg border border-slate-700/60">
+              <span class="text-xs text-slate-400">Valor Pretendido:</span>
+              <span class="text-base font-bold text-purple-400">${fmtMoeda(item.valor_pretendido)}</span>
+            </div>
+
+            ${item.notas ? `<p class="text-xs text-slate-400 italic">💬 ${item.notas}</p>` : ''}
+          </div>
+
+          <div class="flex justify-between items-center pt-3 border-t border-slate-700/60 text-xs mt-2">
+            <a href="${waUrl}" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1.5 rounded-lg flex items-center gap-1">
+              💬 WhatsApp
+            </a>
+            <div class="flex gap-2">
+              <button onclick='openModal(${JSON.stringify(item)})' class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg">✏️ Editar</button>
+              <button onclick="deleteCaptacao('${item.id}')" class="text-rose-400 hover:bg-rose-950/40 p-1.5 rounded-lg">🗑️</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    async function deleteCaptacao(id) {
+      if (!confirm('Deseja excluir esta captação?')) return;
+      const { error } = await supabaseClient.from('captacoes').delete().eq('id', id);
+      if (!error) loadCaptacoes();
+    }
+
+    window.onload = initSupabase;
+  </script>
+</body>
+</html>

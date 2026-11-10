@@ -269,7 +269,6 @@
       toggleModal('leadModal');
     }
 
-    // TRAVA RIGOROSA AO SALVAR MANUALMENTE (Bloqueia se o telefone ou o nome já existirem na base)
     async function saveLead(e) {
       e.preventDefault();
       if (!supabaseClient) return alert('Configure o Supabase primeiro.');
@@ -279,7 +278,6 @@
       const foneInput = document.getElementById('whatsapp').value;
       const normInputPhone = normalizePhone(foneInput);
 
-      // Se for um novo registo, valida duplicação no Supabase por Telefone ou Nome
       if (!id) {
         const { data: allLeadsCheck, error: checkErr } = await supabaseClient
           .from('leads')
@@ -391,6 +389,7 @@
       input.focus();
     }
 
+    // BUSCA INTELIGENTE BLINDADA: Funciona com qualquer pedaço do número (com 55, DDD ou hífens)
     async function performSearch() {
       const searchVal = document.getElementById('searchInput').value.trim();
       if (!searchVal) {
@@ -401,11 +400,12 @@
       const container = document.getElementById('leadsList');
       container.innerHTML = `<p class="text-center text-slate-500 py-8 text-sm">Pesquisando na base de dados...</p>`;
 
-      const cleanDigits = searchVal.replace(/\D/g, '');
+      const cleanDigits = normalizePhone(searchVal);
       
       let query = supabaseClient.from('leads').select('*').order('created_at', { ascending: false });
 
       if (cleanDigits.length >= 3) {
+        // Busca inteligente: filtra no banco pelos dígitos normalizados (excluindo DDI/hífens)
         query = query.ilike('whatsapp', `%${cleanDigits}%`);
       } else {
         query = query.ilike('nome', `%${searchVal}%`);

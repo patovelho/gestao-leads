@@ -340,9 +340,10 @@
       }
     }
 
-    async function loadLeadsAndCount() {
+   async function loadLeadsAndCount() {
       if (!supabaseClient) return;
 
+      // 1. Atualiza o badge do total de leads
       const { count, error: countError } = await supabaseClient
         .from('leads')
         .select('*', { count: 'exact', head: true });
@@ -351,11 +352,23 @@
         document.getElementById('totalLeadsBadge').innerText = `${count} leads`;
       }
 
-      const { data, error } = await supabaseClient
-        .from('leads')
-        .select('*')
+      // 2. Consulta filtrada no Supabase
+      let query = supabaseClient.from('leads').select('*');
+
+      const todayDate = new Date();
+      const localTodayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
+
+      if (currentFilter === 'hoje') {
+        query = query.lte('proximo_follow_up', `${localTodayStr}T23:59:59`);
+      } else if (currentFilter !== 'todos') {
+        // Busca direta no banco com o status selecionado (ex: 'Fechado')
+        query = query.ilike('status', `${currentFilter}%`);
+      }
+
+      // Busca os registros específicos da aba selecionada
+      const { data, error } = await query
         .order('created_at', { ascending: false })
-        .limit(300);
+        .limit(1000);
 
       if (error) {
         console.error(error);
@@ -365,7 +378,6 @@
       currentLeads = data || [];
       renderLeads(currentLeads);
     }
-
     function setFilter(filter) {
       currentFilter = filter;
       document.querySelectorAll('.tab-btn').forEach(btn => {

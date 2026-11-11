@@ -758,6 +758,111 @@
       if (!error) loadLeadsAndCount();
     }
 
+    // Sobrescreve o filtro para aceitar 'Fechado' ou 'Fechados'
+    window.renderLeads = function(leads) {
+      const container = document.getElementById('leadsList');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const todayDate = new Date();
+      const localTodayStr = `${todayDate.getFullYear()}-${String(todayDate.getMonth()+1).padStart(2,'0')}-${String(todayDate.getDate()).padStart(2,'0')}`;
+
+      const filtered = leads.filter(l => {
+        const leadStatus = (l.status || 'Novo').toLowerCase().trim();
+
+        if (currentFilter === 'hoje') {
+          return l.proximo_follow_up && l.proximo_follow_up.slice(0, 10) <= localTodayStr;
+        }
+        
+        if (currentFilter !== 'todos') {
+          const filtroNormalizado = currentFilter.toLowerCase().trim();
+          if (filtroNormalizado.startsWith('fechad')) {
+            return leadStatus.startsWith('fechad');
+          }
+          return leadStatus === filtroNormalizado;
+        }
+        
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<p class="text-center text-slate-500 py-8 text-sm">Nenhum lead encontrado.</p>`;
+        return;
+      }
+
+      filtered.forEach(lead => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-800 border border-slate-700/80 rounded-xl p-4 space-y-3 shadow-md';
+
+        const cleanPhone = (lead.whatsapp || '').replace(/\D/g, '');
+        const waUrl = cleanPhone ? `https://wa.me/55${cleanPhone}` : '#';
+        const fmtMoeda = v => v ? `R$ ${Number(v).toLocaleString('pt-BR')}` : 'Não inf.';
+        
+        let pagBadge = lead.forma_pagamento === 'financiamento' 
+          ? `<span class="bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded text-[11px] border border-purple-700/50">Financiamento ${lead.valor_entrada ? '(Entrada: ' + fmtMoeda(lead.valor_entrada) + ')' : ''}</span>`
+          : `<span class="bg-emerald-900/40 text-emerald-300 px-2 py-0.5 rounded text-[11px] border border-emerald-700/50">À Vista</span>`;
+
+        let followUpBadge = '';
+        if (lead.proximo_follow_up) {
+          const dtParts = lead.proximo_follow_up.replace('Z', '').split('T');
+          const datePart = dtParts[0].split('-');
+          const timePart = dtParts[1] ? dtParts[1].slice(0, 5) : '00:00';
+          const dtDisplay = `${datePart[2]}/${datePart[1]}/${datePart[0]}`;
+          const isPast = new Date(lead.proximo_follow_up.replace('Z', '')) < new Date();
+
+          followUpBadge = `
+            <div class="flex items-center justify-between bg-slate-900/60 p-2 rounded-lg border border-slate-700 text-xs">
+              <span class="${isPast ? 'text-rose-400 font-semibold' : 'text-amber-300'} flex items-center gap-1">
+                ⏰ Follow-up: ${dtDisplay} às ${timePart}
+              </span>
+              <button onclick="addToGoogleCalendar('${lead.nome.replace(/'/g, "\\'")}', '${lead.whatsapp || ''}', '${lead.tipo_imovel || 'Imóvel'}', '${lead.proximo_follow_up}', '${(lead.notas_follow_up || '').replace(/'/g, "\\'")}')" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-[11px] flex items-center gap-1">
+                🗓️ Google Agenda
+              </button>
+            </div>`;
+        }
+
+        const dtCriacao = lead.created_at ? new Date(lead.created_at).toLocaleString('pt-BR', {dateStyle: 'short', timeStyle: 'short'}) : '';
+
+        card.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <h4 class="font-bold text-base text-slate-100">${lead.nome}</h4>
+              <p class="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
+                <span>📍 ${lead.tipo_imovel || 'Imóvel'}</span> • 
+                <span>💰 ${fmtMoeda(lead.orcamento)}</span>
+              </p>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+              <span class="bg-blue-900/40 text-blue-300 border border-blue-700/50 text-xs px-2.5 py-1 rounded-full font-medium">
+                ${lead.status || 'Novo'}
+              </span>
+              ${dtCriacao ? `<span class="text-[10px] text-slate-400">Contato: ${dtCriacao}</span>` : ''}
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-1.5 items-center">
+            <span class="bg-slate-700 text-slate-300 text-[11px] px-2 py-0.5 rounded">Origem: ${lead.origem || 'N/I'}</span>
+            ${pagBadge}
+            <span class="bg-slate-900 text-slate-400 text-[11px] px-2 py-0.5 rounded">Fone: ${lead.whatsapp || 'N/I'}</span>
+          </div>
+
+          ${lead.notas_follow_up ? `<p class="text-xs text-slate-300 bg-slate-900/70 p-2.5 rounded-lg border border-slate-700/50">💬 ${lead.notas_follow_up}</p>` : ''}
+          
+          ${followUpBadge}
+
+          <div class="flex justify-between items-center pt-2 border-t border-slate-700/60 text-xs">
+            <a href="${waUrl}" target="_blank" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+              💬 WhatsApp
+            </a>
+            <div class="flex gap-2">
+              <button onclick='openLeadModal(${JSON.stringify(lead)})' class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg">✏️ Editar / Follow-up</button>
+              <button onclick="deleteLead('${lead.id}')" class="text-rose-400 hover:bg-rose-950/40 p-1.5 rounded-lg">🗑️</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    };
     window.onload = initSupabase;
   </script>
 </body>

@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quebra de Objeções - André Reis Imóveis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-10">
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-10 shadow-lg">
+    <div class="max-w-5xl mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-600 transition flex items-center gap-1">
+          ⬅️ Hub
+        </a>
+        <h1 class="text-xl font-bold text-purple-400 flex items-center gap-2">
+          🛡️ Quebra de Objeções
+        </h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="toggleModal('addModal')" class="text-xs bg-purple-600 hover:bg-purple-500 text-white font-medium px-3 py-1.5 rounded-lg shadow transition">
+          ➕ Nova Frase
+        </button>
+        <button onclick="toggleModal('configModal')" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-600">
+          ⚙️
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto p-4 space-y-6">
+
+    <!-- Caixa de Entrada da Objeção -->
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl space-y-4">
+      <div>
+        <label for="objecaoInput" class="block text-sm font-semibold text-slate-200 mb-1">
+          Qual é a objeção ou dúvida do cliente neste momento?
+        </label>
+        <p class="text-xs text-slate-400 mb-3">
+          Digite palavras-chave para filtrar seu banco de frases abaixo ou escreva o cenário completo para consultar no Gemini / ChatGPT.
+        </p>
+        <textarea id="objecaoInput" rows="3" oninput="atualizarResultados()" placeholder="Ex: cliente achou o terreno caro, dúvida sobre posse, financiamento, vai pensar..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-sm text-white focus:outline-none focus:border-purple-500 transition"></textarea>
+      </div>
+
+      <!-- Atalhos Rápidos -->
+      <div class="flex flex-wrap gap-2 items-center">
+        <span class="text-xs text-slate-400">Filtros rápidos:</span>
+        <button onclick="setObjecao('caro')" class="text-xs bg-slate-700/70 hover:bg-purple-600/40 border border-slate-600 px-2.5 py-1 rounded-lg transition">💰 Está caro</button>
+        <button onclick="setObjecao('pensar')" class="text-xs bg-slate-700/70 hover:bg-purple-600/40 border border-slate-600 px-2.5 py-1 rounded-lg transition">🤔 Vou pensar</button>
+        <button onclick="setObjecao('juros')" class="text-xs bg-slate-700/70 hover:bg-purple-600/40 border border-slate-600 px-2.5 py-1 rounded-lg transition">📉 Juros / Financiamento</button>
+        <button onclick="setObjecao('documento')" class="text-xs bg-slate-700/70 hover:bg-purple-600/40 border border-slate-600 px-2.5 py-1 rounded-lg transition">📄 Documentação / Posse</button>
+        <button onclick="setObjecao('')" class="text-xs text-slate-400 hover:text-white underline ml-1">Limpar</button>
+      </div>
+    </div>
+
+    <!-- Scripts Salvos no Banco de Dados -->
+    <div class="space-y-3">
+      <div class="flex justify-between items-center">
+        <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+          ⚡ Seu Banco de Respostas Prontas <span id="countBadge" class="text-xs font-normal text-slate-400">(0 frases)</span>
+        </h3>
+      </div>
+      <div id="scriptsContainer" class="grid grid-cols-1 gap-3">
+        <p class="text-center text-slate-500 py-6 text-xs">Carregando scripts do banco de dados...</p>
+      </div>
+    </div>
+
+    <!-- Dois Painéis Lado a Lado: Gemini e ChatGPT -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+      
+      <!-- Painel Gemini -->
+      <div class="bg-slate-800 border border-blue-500/40 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-lg">
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h2 class="font-bold text-base text-blue-400 flex items-center gap-2">
+              ✨ Consultar no Google Gemini
+            </h2>
+            <span class="text-[10px] bg-blue-950 text-blue-300 border border-blue-800 px-2 py-0.5 rounded-full">IA Google</span>
+          </div>
+          <p class="text-xs text-slate-400">
+            Copia o comando estruturado como especialista imobiliário e abre o Gemini pronto para colar.
+          </p>
+          <div id="previewGemini" class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-300 font-mono max-h-24 overflow-y-auto">
+            Digite uma objeção acima para gerar o comando...
+          </div>
+        </div>
+        <button onclick="abrirGemini()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 px-4 rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-md">
+          📋 Copiar Prompt e Abrir Gemini
+        </button>
+      </div>
+
+      <!-- Painel ChatGPT -->
+      <div class="bg-slate-800 border border-emerald-500/40 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-lg">
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h2 class="font-bold text-base text-emerald-400 flex items-center gap-2">
+              🤖 Consultar no ChatGPT
+            </h2>
+            <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-800 px-2 py-0.5 rounded-full">OpenAI</span>
+          </div>
+          <p class="text-xs text-slate-400">
+            Envia a objeção diretamente para a caixa de perguntas do ChatGPT em uma nova aba.
+          </p>
+          <div id="previewChatGPT" class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-300 font-mono max-h-24 overflow-y-auto">
+            Digite uma objeção acima para gerar o comando...
+          </div>
+        </div>
+        <button onclick="abrirChatGPT()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 px-4 rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-md">
+          🚀 Enviar Direto para ChatGPT
+        </button>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Modal Cadastrar Nova Frase -->
+  <div id="addModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-lg w-full p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-slate-100">➕ Nova Resposta de Objeção</h3>
+        <button onclick="toggleModal('addModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+
+      <form onsubmit="salvarNovaObjecao(event)" class="space-y-3 text-sm">
+        <div>
+          <label class="block text-slate-400 mb-1">Título / Situação</label>
+          <input type="text" id="novoTitulo" required placeholder="Ex: Terreno com Contrato de Posse" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Palavras-chave para busca (separadas por vírgula)</label>
+          <input type="text" id="novasKeywords" placeholder="Ex: posse, escritura, rgi, documento, inseguro" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-slate-400 mb-1">Texto da Resposta (pronto para WhatsApp)</label>
+          <textarea id="novaResposta" rows="4" required placeholder="Escreva aqui o argumento que você usa com o cliente..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white focus:border-purple-500 focus:outline-none"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-medium py-3 rounded-xl shadow-lg transition">
+          Salvar no Banco de Dados
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Config Supabase -->
+  <div id="configModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-slate-100">Configuração Supabase</h3>
+        <button onclick="toggleModal('configModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-slate-400 mb-1">Project URL</label>
+          <input type="text" id="cfgUrl" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">API Key</label>
+          <input type="password" id="cfgKey" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <button onclick="saveConfig()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-medium py-2.5 rounded-xl">
+          Salvar Conexão
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let supabaseClient = null;
+    let bancoScripts = [];
+
+    function initSupabase() {
+      const url = localStorage.getItem('sp_url');
+      const key = localStorage.getItem('sp_key');
+      if (url && key) {
+        supabaseClient = supabase.createClient(url, key);
+        document.getElementById('cfgUrl').value = url;
+        document.getElementById('cfgKey').value = key;
+        carregarObjecoes();
+      } else {
+        toggleModal('configModal');
+      }
+    }
+
+    function saveConfig() {
+      const url = document.getElementById('cfgUrl').value.trim();
+      const key = document.getElementById('cfgKey').value.trim();
+      if (url && key) {
+        localStorage.setItem('sp_url', url);
+        localStorage.setItem('sp_key', key);
+        supabaseClient = supabase.createClient(url, key);
+        toggleModal('configModal');
+        carregarObjecoes();
+      }
+    }
+
+    function toggleModal(id) {
+      const m = document.getElementById(id);
+      m.classList.toggle('hidden');
+      m.classList.toggle('flex');
+    }
+
+    async function carregarObjecoes() {
+      if (!supabaseClient) return;
+      const { data, error } = await supabaseClient
+        .from('objecoes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error(error);
+        document.getElementById('scriptsContainer').innerHTML = `<p class="text-rose-400 text-xs">Erro ao carregar tabela 'objecoes': ${error.message}</p>`;
+        return;
+      }
+
+      bancoScripts = data || [];
+      document.getElementById('countBadge').innerText = `(${bancoScripts.length} frases)`;
+      renderScripts(document.getElementById('objecaoInput').value.toLowerCase());
+    }
+
+    async function salvarNovaObjecao(e) {
+      e.preventDefault();
+      if (!supabaseClient) return;
+
+      const payload = {
+        titulo: document.getElementById('novoTitulo').value.trim(),
+        palavras_chave: document.getElementById('novasKeywords').value.trim(),
+        resposta: document.getElementById('novaResposta').value.trim()
+      };
+
+      const { error } = await supabaseClient.from('objecoes').insert([payload]);
+
+      if (error) {
+        alert('Erro ao salvar: ' + error.message);
+      } else {
+        document.getElementById('novoTitulo').value = '';
+        document.getElementById('novasKeywords').value = '';
+        document.getElementById('novaResposta').value = '';
+        toggleModal('addModal');
+        carregarObjecoes();
+      }
+    }
+
+    async function excluirObjecao(id) {
+      if (!confirm('Remover esta frase do banco de dados?')) return;
+      const { error } = await supabaseClient.from('objecoes').delete().eq('id', id);
+      if (!error) carregarObjecoes();
+    }
+
+    function montarPrompt(objecao) {
+      const textoBase = objecao.trim() || 'O cliente achou o imóvel caro e disse que vai pesquisar mais.';
+      return `Atue como um corretor de imóveis sênior especialista em fechamento de vendas no litoral do Rio de Janeiro (Saquarema e Região dos Lagos). Um cliente apresentou a seguinte objeção: "${textoBase}". Me dê 3 opções de respostas curtas, empáticas e persuasivas para eu enviar agora pelo WhatsApp, sem parecer insistente, focando em agendar uma visita ou avançar para proposta.`;
+    }
+
+    function setObjecao(texto) {
+      const input = document.getElementById('objecaoInput');
+      input.value = texto;
+      atualizarResultados();
+    }
+
+    function atualizarResultados() {
+      const val = document.getElementById('objecaoInput').value;
+      const prompt = montarPrompt(val);
+
+      document.getElementById('previewGemini').innerText = val.trim() ? prompt : 'Digite uma objeção acima para gerar o comando...';
+      document.getElementById('previewChatGPT').innerText = val.trim() ? prompt : 'Digite uma objeção acima para gerar o comando...';
+
+      renderScripts(val.toLowerCase());
+    }
+
+    function renderScripts(filtro) {
+      const container = document.getElementById('scriptsContainer');
+      container.innerHTML = '';
+
+      const termo = filtro.trim();
+      const filtrados = termo
+        ? bancoScripts.filter(s => 
+            (s.titulo || '').toLowerCase().includes(termo) ||
+            (s.palavras_chave || '').toLowerCase().includes(termo) ||
+            (s.resposta || '').toLowerCase().includes(termo)
+          )
+        : bancoScripts;
+
+      if (filtrados.length === 0) {
+        container.innerHTML = `<p class="text-slate-500 text-xs py-4">Nenhuma frase interna encontrada para "${termo}". Use os botões do Gemini ou ChatGPT abaixo ou clique em "➕ Nova Frase" para salvar uma!</p>`;
+        return;
+      }
+
+      filtrados.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-800/80 border border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3';
+        card.innerHTML = `
+          <div class="space-y-1 flex-1">
+            <div class="flex items-center gap-2">
+              <h4 class="text-xs font-bold text-purple-300">${item.titulo}</h4>
+              ${item.palavras_chave ? `<span class="text-[10px] text-slate-500">[${item.palavras_chave}]</span>` : ''}
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">"${item.resposta}"</p>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <button onclick="copiarTexto(this, '${item.resposta.replace(/'/g, "\\'").replace(/\n/g, " ")}')" class="bg-slate-700 hover:bg-purple-600 text-white text-xs px-3 py-2 rounded-lg transition font-medium">
+              📋 Copiar
+            </button>
+            <button onclick="excluirObjecao('${item.id}')" title="Excluir" class="text-slate-500 hover:text-rose-400 text-xs px-2 py-2">
+              🗑️
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function copiarTexto(btn, texto) {
+      navigator.clipboard.writeText(texto);
+      const original = btn.innerText;
+      btn.innerText = '✅ Copiado!';
+      btn.classList.add('bg-emerald-600');
+      setTimeout(() => {
+        btn.innerText = original;
+        btn.classList.remove('bg-emerald-600');
+      }, 2000);
+    }
+
+    function abrirGemini() {
+      const val = document.getElementById('objecaoInput').value;
+      const prompt = montarPrompt(val);
+      navigator.clipboard.writeText(prompt);
+      window.open('https://gemini.google.com/app', '_blank');
+    }
+
+    function abrirChatGPT() {
+      const val = document.getElementById('objecaoInput').value;
+      const prompt = montarPrompt(val);
+      const url = `https://chatgpt.com/?q=${encodeURIComponent(prompt)}`;
+      window.open(url, '_blank');
+    }
+
+    window.onload = initSupabase;
+  </script>
+</body>
+</html>

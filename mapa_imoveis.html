@@ -185,22 +185,21 @@
       if (!supabaseClient) return;
       document.getElementById('contadorImoveis').innerText = 'Buscando carteira...';
 
-      let listaUnificada = [];
+      // Busca exclusivamente na tabela principal 'imoveis'
+      const { data, error } = await supabaseClient
+        .from('imoveis')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      // 1. Busca na tabela principal 'imoveis' (do seu módulo imoveis.html)
-      const resImoveis = await supabaseClient.from('imoveis').select('*');
-      if (!resImoveis.error && resImoveis.data) {
-        listaUnificada = listaUnificada.concat(resImoveis.data.map(i => normalizarItem(i, 'imoveis')));
+      if (error) {
+        document.getElementById('contadorImoveis').innerText = 'Erro ao carregar';
+        return;
       }
 
-      // 2. Busca também na tabela 'carteira_mapa' (se houver registros nela)
-      const resMapa = await supabaseClient.from('carteira_mapa').select('*');
-      if (!resMapa.error && resMapa.data) {
-        listaUnificada = listaUnificada.concat(resMapa.data.map(i => normalizarItem(i, 'mapa')));
-      }
+      const lista = (data || []).map(i => normalizarItem(i, 'imoveis'));
 
       // Filtra apenas imóveis que tenham pelo menos bairro ou rua cadastrados
-      todosImoveis = listaUnificada.filter(i => i.bairro || i.rua);
+      todosImoveis = lista.filter(i => i.bairro || i.rua);
 
       document.getElementById('contadorImoveis').innerText = `${todosImoveis.length} imóvel(is) na carteira`;
       preencherSelectBairros();

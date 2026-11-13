@@ -137,7 +137,7 @@
     let supabaseClient = null;
     let todosImoveis = [];
     let urlCompartilhamentoAtual = 'https://www.google.com/maps/search/?api=1&query=Saquarema+RJ';
-
+    
     function initSupabase() {
       const url = localStorage.getItem('sp_url');
       const key = localStorage.getItem('sp_key');
@@ -287,7 +287,8 @@
       const encoded = encodeURIComponent(endereco);
       document.getElementById('enderecoExibido').innerText = endereco;
       document.getElementById('mapaIframe').src = `https://maps.google.com/maps?q=${encoded}&t=&z=17&ie=UTF8&iwloc=&output=embed`;
-      urlCompartilhamentoAtual = `https://www.google.com/maps/search/?api=1&query=${encoded}`;
+      urlCompartilhamentoAtual = `https://www.google.com/maps/search/?api=1&query=${encoded.replace(/%20/g, '+')}`;
+        //`https://www.google.com/maps/search/?api=1&query=${encoded}`;
       document.getElementById('btnAbrirExterno').href = urlCompartilhamentoAtual;
     }
 

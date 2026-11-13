@@ -287,8 +287,10 @@
       const encoded = encodeURIComponent(endereco);
       document.getElementById('enderecoExibido').innerText = endereco;
       document.getElementById('mapaIframe').src = `https://maps.google.com/maps?q=${encoded}&t=&z=17&ie=UTF8&iwloc=&output=embed`;
-      urlCompartilhamentoAtual = `https://www.google.com/maps/search/?api=1&query=${encoded.replace(/%20/g, '+')}`;
-        //`https://www.google.com/maps/search/?api=1&query=${encoded}`;
+      const queryLimpa = endereco.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[, -]+/g, '+');
+      urlCompartilhamentoAtual = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryLimpa).replace(/%2B/g, '+')}`;
+      //urlCompartilhamentoAtual = `https://www.google.com/maps/search/?api=1&query=${encoded.replace(/%20/g, '+')}`;
+      //`https://www.google.com/maps/search/?api=1&query=${encoded}`;
       document.getElementById('btnAbrirExterno').href = urlCompartilhamentoAtual;
     }
 

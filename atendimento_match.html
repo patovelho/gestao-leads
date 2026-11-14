@@ -50,21 +50,6 @@
             <input type="text" id="nomeCliente" placeholder="ex: Carlos, Mariana..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
           </div>
           <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1">Orçamento Máximo (R$)</label>
-            <input type="number" id="orcamentoMax" placeholder="ex: 350000" oninput="filtrarImoveisMatch()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-          <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1">Forma de Pagamento</label>
-            <select id="formaPagamento" onchange="filtrarImoveisMatch()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
-              <option value="">Indiferente / Não informou ainda</option>
-              <option value="vista">À vista (Dinheiro / Pix)</option>
-              <option value="financiamento">Financiamento Bancário</option>
-            </select>
-          </div>
-          <div>
             <label class="block text-xs font-medium text-slate-300 mb-1">Bairro Preferido (Saquarema)</label>
             <select id="filtroBairro" onchange="filtrarImoveisMatch()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
               <option value="">Todos os bairros da carteira</option>
@@ -74,7 +59,7 @@
 
         <div class="mt-4 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 text-xs text-slate-400 flex items-start gap-2">
           <span class="text-amber-400 text-sm">💡</span>
-          <p><strong>Dica:</strong> Digite o valor máximo que o cliente busca. Se ele ainda não disse se vai financiar ou pagar à vista, use o Script de Qualificação ao lado antes de enviar opções.</p>
+          <p><strong>Dica:</strong> Selecione os imóveis desejados na lista abaixo. O sistema já puxa o valor cadastrado na sua carteira e monta a mensagem pronta com os links do site.</p>
         </div>
       </div>
 
@@ -82,7 +67,7 @@
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-sm font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
-            2. Imóveis Compatíveis (<span id="contadorCompativeis">0</span>)
+            2. Imóveis da Carteira (<span id="contadorCompativeis">0</span>)
           </h2>
           <button onclick="autoSelecionarTop3()" class="bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5">
             ✨ Auto-Selecionar 3 Opções
@@ -108,9 +93,6 @@
         <div class="mb-3">
           <span class="text-xs text-slate-400 block mb-1.5">Atalhos de Abordagem (clique para trocar o modelo):</span>
           <div class="flex flex-wrap gap-2">
-            <button onclick="mudarAbordagem('qualificar')" id="btnAbordagemQualificar" class="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-xl hover:bg-slate-700 transition">
-              ❓ Qualificar (Vista vs Financiamento)
-            </button>
             <button onclick="mudarAbordagem('enviar')" id="btnAbordagemEnviar" class="text-xs bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 px-3 py-1.5 rounded-xl hover:bg-emerald-600/30 transition">
               🚀 Enviar Opções Selecionadas
             </button>
@@ -148,7 +130,7 @@
     let supabaseClient = null;
     let todosImoveis = [];
     let selecionadosIds = [];
-    let modoAtual = 'enviar'; // 'enviar', 'qualificar', 'captacao'
+    let modoAtual = 'enviar'; // 'enviar', 'captacao'
 
     // Inicialização ao carregar a página
     window.addEventListener('DOMContentLoaded', async () => {
@@ -245,24 +227,15 @@
     }
 
     function filtrarImoveisMatch() {
-      const orcamento = parseFloat(document.getElementById('orcamentoMax').value) || 0;
-      const pagamento = document.getElementById('formaPagamento').value;
       const bairroFiltro = document.getElementById('filtroBairro').value;
 
       const filtrados = todosImoveis.filter(i => {
         if (i.status === 'Vendido' || i.status === 'Inativo') return false;
-        if (orcamento > 0 && i.valorNum > (orcamento * 1.15)) return false; // margem de 15%
         if (bairroFiltro && i.bairro.toLowerCase() !== bairroFiltro.toLowerCase()) return false;
-        
-        // Filtro de documentação se for financiamento
-        if (pagamento === 'financiamento' && i.documentacao && !i.documentacao.toUpperCase().includes('RGI') && !i.documentacao.toUpperCase().includes('ESCRITURA')) {
-          return false;
-        }
         return true;
       });
 
       renderizarListaImoveis(filtrados);
-      atualizarDicaEstrategica(pagamento);
       gerarMensagemWhatsApp();
     }
 
@@ -271,7 +244,7 @@
       document.getElementById('contadorCompativeis').innerText = lista.length;
 
       if (lista.length === 0) {
-        container.innerHTML = `<p class="text-xs text-slate-500 text-center py-8">Nenhum imóvel compatível com os filtros atuais.</p>`;
+        container.innerHTML = `<p class="text-xs text-slate-500 text-center py-8">Nenhum imóvel encontrado com este filtro.</p>`;
         return;
       }
 
@@ -314,14 +287,9 @@
     }
 
     function autoSelecionarTop3() {
-      // Pega até 3 dos primeiros visíveis compatíveis
-      const orcamento = parseFloat(document.getElementById('orcamentoMax').value) || 0;
-      const pagamento = document.getElementById('formaPagamento').value;
       const bairroFiltro = document.getElementById('filtroBairro').value;
-
       const filtrados = todosImoveis.filter(i => {
         if (i.status === 'Vendido' || i.status === 'Inativo') return false;
-        if (orcamento > 0 && i.valorNum > (orcamento * 1.15)) return false;
         if (bairroFiltro && i.bairro.toLowerCase() !== bairroFiltro.toLowerCase()) return false;
         return true;
       });
@@ -330,20 +298,8 @@
       filtrarImoveisMatch();
     }
 
-    function atualizarDicaEstrategica(pagamento) {
-      const dicaEl = document.getElementById('dicaEstrategica');
-      if (pagamento === 'financiamento') {
-        dicaEl.innerHTML = `<strong>Estratégia Financiamento:</strong> O sistema filtrou apenas imóveis com documentação apta para banco (RGI/Escritura).`;
-      } else if (pagamento === 'vista') {
-        dicaEl.innerHTML = `<strong>Estratégia À Vista:</strong> Oportunidades em aberto com excelente margem de negociação para pagamento rápido.`;
-      } else {
-        dicaEl.innerHTML = `<strong>Estratégia:</strong> Selecione de 1 a 3 imóveis abaixo para gerar a curadoria ideal no WhatsApp.`;
-      }
-    }
-
     function mudarAbordagem(tipo) {
       modoAtual = tipo;
-      document.getElementById('btnAbordagemQualificar').className = `text-xs px-3 py-1.5 rounded-xl border transition ${tipo === 'qualificar' ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`;
       document.getElementById('btnAbordagemEnviar').className = `text-xs px-3 py-1.5 rounded-xl border transition ${tipo === 'enviar' ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`;
       document.getElementById('btnAbordagemCaptacao').className = `text-xs px-3 py-1.5 rounded-xl border transition ${tipo === 'captacao' ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/30' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'}`;
       gerarMensagemWhatsApp();
@@ -363,15 +319,9 @@
 
       let corpo = '';
 
-      if (modoAtual === 'qualificar') {
+      if (modoAtual === 'captacao') {
         corpo = `${saudacao} Aqui é o *André Reis*, corretor de imóveis aqui em Saquarema.\n\n`;
-        corpo += `Para eu te enviar as melhores opções que temos hoje na carteira, me tire só uma dúvida rápida:\n`;
-        corpo += `• Você prefere imóvel com *RGI / Escritura Definitiva* (ideal caso vá usar financiamento bancário), ou encontrou alguma oportunidade com *Contrato de Compra e Venda* com bom preço?\n\n`;
-        corpo += `Me confirme também qual faixa de valor e bairros em Saquarema você tem priorizado!`;
-
-      } else if (modoAtual === 'captacao') {
-        corpo = `${saudacao} Aqui é o *André Reis*, corretor de imóveis aqui em Saquarema.\n\n`;
-        corpo += `Estive revisando a nossa carteira exata para o perfil que você busca, mas no momento os imóveis que temos disponíveis nesse padrão específico já estão em fase de negociação avançada.\n\n`;
+        corpo += `Estive revisando a nossa carteira para o perfil que você busca, mas no momento os imóveis disponíveis nesse padrão específico já estão em fase de negociação avançada.\n\n`;
         corpo += `Estou fazendo novas captações essa semana na região. Assim que entrar algo exatamente no seu perfil, te aviso em primeira mão por aqui!`;
 
       } else {
@@ -402,8 +352,6 @@
 
     function limparFiltros() {
       document.getElementById('nomeCliente').value = '';
-      document.getElementById('orcamentoMax').value = '';
-      document.getElementById('formaPagamento').value = '';
       document.getElementById('filtroBairro').value = '';
       selecionadosIds = [];
       filtrarImoveisMatch();

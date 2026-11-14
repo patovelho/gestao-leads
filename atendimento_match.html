@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Match de Atendimento & Vitrine - André Reis Imóveis</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen pb-12">
+
+  <!-- Header -->
+  <header class="bg-slate-800 border-b border-slate-700 p-4 sticky top-0 z-10 shadow-lg">
+    <div class="max-w-6xl mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-600 transition flex items-center gap-1">
+          ⬅️ Hub
+        </a>
+        <h1 class="text-xl font-bold text-emerald-400 flex items-center gap-2">
+          🎯 Match de Atendimento
+        </h1>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="statusCarteira" class="text-xs text-slate-400 hidden sm:inline">Sincronizando...</span>
+        <button onclick="toggleModal('configModal')" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg border border-slate-600">
+          ⚙️ Config
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+    <!-- Coluna Esquerda: Perfil do Cliente e Filtros (7 colunas) -->
+    <div class="lg:col-span-7 space-y-5">
+
+      <!-- Card de Critérios do Lead -->
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-sm font-bold text-cyan-400 uppercase tracking-wider">1. Perfil do Cliente</h2>
+          <button onclick="limparFiltros()" class="text-xs text-slate-400 hover:text-white">Limpar</button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Nome do Cliente (Opcional)</label>
+            <input type="text" id="nomeCliente" oninput="gerarMensagemWhatsApp()" placeholder="ex: Carlos, Mariana..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Orçamento Máximo (R$)</label>
+            <input type="number" id="orcamentoMax" oninput="filtrarImoveisMatch()" placeholder="ex: 350000" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Forma de Pagamento</label>
+            <select id="formaPagamento" onchange="filtrarImoveisMatch()" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+              <option value="todos">Indiferente / Não informou ainda</option>
+              <option value="financiamento">Financiamento Bancário (Exige RGI)</option>
+              <option value="vista">À Vista / Permuta (+10% margem negociação)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Bairro Preferido (Saquarema)</label>
+            <select id="filtroBairro" onchange="filtrarImoveisMatch()" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-emerald-500">
+              <option value="">Todos os bairros da carteira</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Alerta Estratégico Dinâmico -->
+        <div id="dicaEstrategica" class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-300 leading-relaxed">
+          💡 <strong>Dica:</strong> Digite o valor máximo que o cliente busca. Se ele ainda não disse se vai financiar ou pagar à vista, use o <strong>Script de Qualificação</strong> ao lado antes de enviar opções.
+        </div>
+      </div>
+
+      <!-- Lista de Imóveis Compatíveis -->
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl space-y-4">
+        <div class="flex justify-between items-center">
+          <h2 class="text-sm font-bold text-slate-100">
+            2. Imóveis Compatíveis <span id="contadorMatch" class="text-xs font-normal text-emerald-400">(0)</span>
+          </h2>
+          <button onclick="selecionarTop3Automatico()" class="text-xs bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white border border-emerald-500/40 px-3 py-1.5 rounded-lg transition font-medium">
+            ✨ Auto-Selecionar 3 Opções
+          </button>
+        </div>
+
+        <div id="listaImoveisMatch" class="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+          <p class="text-xs text-slate-500 py-4 text-center">Carregando imóveis da sua carteira...</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Coluna Direita: Roteiro de WhatsApp Pronto (5 colunas) -->
+    <div class="lg:col-span-5 space-y-5">
+
+      <!-- Gerador de Mensagem -->
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-xl space-y-4 sticky top-20">
+        <div class="flex justify-between items-center">
+          <h2 class="text-sm font-bold text-emerald-400 uppercase tracking-wider">3. Mensagem Pronta p/ WhatsApp</h2>
+          <span id="qtdSelecionados" class="text-xs bg-slate-900 text-cyan-300 px-2.5 py-1 rounded-full border border-slate-700">0 selecionados</span>
+        </div>
+
+        <!-- Botões de Scripts Rápidos -->
+        <div class="space-y-1.5">
+          <span class="text-[11px] text-slate-400 block">Atalhos de Abordagem (clique para trocar o modelo):</span>
+          <div class="flex flex-wrap gap-1.5">
+            <button onclick="aplicarScriptRapido('qualificar')" class="text-[11px] bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg transition">
+              ❓ Qualificar (Vista vs Financiamento)
+            </button>
+            <button onclick="aplicarScriptRapido('vitrine')" class="text-[11px] bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 px-2.5 py-1.5 rounded-lg transition">
+              🏠 Enviar Opções Selecionadas
+            </button>
+            <button onclick="aplicarScriptRapido('captacao')" class="text-[11px] bg-slate-700 hover:bg-slate-600 text-slate-200 px-2.5 py-1.5 rounded-lg transition">
+              🔍 Sem estoque exato (Captação)
+            </button>
+          </div>
+        </div>
+
+        <textarea id="textoWhatsApp" rows="13" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3.5 text-xs text-slate-100 leading-relaxed focus:outline-none focus:border-emerald-500"></textarea>
+
+        <div class="flex gap-2">
+          <button onclick="copiarMensagem(this)" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 px-4 rounded-xl text-sm transition shadow-lg">
+            📋 Copiar Mensagem
+          </button>
+          <a id="btnAbrirWhats" href="https://wa.me/" target="_blank" class="bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 px-4 rounded-xl text-sm transition flex items-center justify-center">
+            💬 Abrir Whats
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Modal Config Supabase -->
+  <div id="configModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm hidden items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 border border-slate-700 rounded-2xl max-w-md w-full p-5 space-y-4">
+      <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+        <h3 class="font-bold text-lg text-slate-100">Configuração Supabase</h3>
+        <button onclick="toggleModal('configModal')" class="text-slate-400 hover:text-white text-xl">✕</button>
+      </div>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-slate-400 mb-1">Project URL</label>
+          <input type="password" id="cfgUrl" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">API Key</label>
+          <input type="password" id="cfgKey" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-white">
+        </div>
+        <button onclick="saveConfig()" class="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-medium py-2.5 rounded-xl">
+          Salvar Conexão
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let supabaseClient = null;
+    let todosImoveis = [];
+    let imoveisFiltrados = [];
+    let selecionadosIds = [];
+
+    function initSupabase() {
+      const url = localStorage.getItem('sp_url');
+      const key = localStorage.getItem('sp_key');
+      if (url && key) {
+        supabaseClient = supabase.createClient(url, key);
+        document.getElementById('cfgUrl').value = url;
+        document.getElementById('cfgKey').value = key;
+        carregarCarteira();
+      } else {
+        toggleModal('configModal');
+      }
+    }
+
+    function saveConfig() {
+      const url = document.getElementById('cfgUrl').value.trim();
+      const key = document.getElementById('cfgKey').value.trim();
+      if (url && key) {
+        localStorage.setItem('sp_url', url);
+        localStorage.setItem('sp_key', key);
+        supabaseClient = supabase.createClient(url, key);
+        toggleModal('configModal');
+        carregarCarteira();
+      }
+    }
+
+    function toggleModal(id) {
+      const m = document.getElementById(id);
+      m.classList.toggle('hidden');
+      m.classList.toggle('flex');
+    }
+
+    function parseValor(val) {
+      if (!val) return 0;
+      if (typeof val === 'number') return val;
+      const limpo = String(val).replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
+      return parseFloat(limpo) || 0;
+    }
+
+    function formatarMoeda(num) {
+      if (!num || num <= 0) return 'Consultar valor';
+      return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+    }
+
+    function gerarLinkMapaLimpo(item) {
+      const partes = [];
+      if (item.rua) partes.push(item.rua);
+      if (item.quadra) partes.push(item.quadra.toLowerCase().includes('qda') || item.quadra.toLowerCase().includes('quadra') ? item.quadra : `Quadra ${item.quadra}`);
+      if (item.lote) partes.push(item.lote.toLowerCase().includes('lote') ? item.lote : `Lote ${item.lote}`);
+      if (item.bairro) partes.push(item.bairro);
+      partes.push('Saquarema - RJ');
+
+      const endereco = partes.join(', ');
+      const queryLimpa = endereco.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[, -]+/g, '+');
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(queryLimpa).replace(/%2B/g, '+')}`;
+    }
+
+    async function carregarCarteira() {
+      if (!supabaseClient) return;
+
+      const { data, error } = await supabaseClient
+        .from('imoveis')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        document.getElementById('statusCarteira').innerText = 'Erro ao conectar';
+        return;
+      }
+
+      todosImoveis = (data || []).map(i => ({
+        id: String(i.id),
+        titulo: i.titulo || i.tipo || 'Imóvel em Saquarema',
+        referencia: i.referencia || i.codigo || i.ref || '',
+        bairro: (i.bairro || i.regiao || '').trim(),
+        rua: (i.rua || i.endereco || i.logradouro || '').trim(),
+        quadra: (i.quadra || '').trim(),
+        lote: (i.lote || '').trim(),
+        valorNum: parseValor(i.valor || i.preco),
+        documentacao: (i.documentacao || i.doc || i.situacao_doc || '').trim(),
+        quartos: i.quartos || i.dormitorios || '',
+        descricao: (i.descricao || i.observacoes || '').trim()
+      }));
+
+      document.getElementById('statusCarteira').innerText = `${todosImoveis.length} imóveis ativos`;
+      preencherBairros();
+      filtrarImoveisMatch();
+      aplicarScriptRapido('qualificar');
+    }
+
+    function preencherBairros() {
+      const select = document.getElementById('filtroBairro');
+      const bairros = [...new Set(todosImoveis.map(i => i.bairro).filter(Boolean))].sort();
+      select.innerHTML = `<option value="">Todos os bairros (${bairros.length})</option>`;
+      bairros.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b;
+        opt.textContent = b;
+        select.appendChild(opt);
+      });
+    }
+
+    function filtrarImoveisMatch() {
+      const orcamento = parseFloat(document.getElementById('orcamentoMax').value) || 0;
+      const pagamento = document.getElementById('formaPagamento').value;
+      const bairro = document.getElementById('filtroBairro').value;
+      const dicaEl = document.getElementById('dicaEstrategica');
+
+      // Atualiza dica estratégica
+      if (pagamento === 'financiamento') {
+        dicaEl.innerHTML = `🏦 <strong>Estratégia Financiamento:</strong> Priorize imóveis com <strong>RGI / Escritura Definitiva</strong>. Pergunte se o cliente já possui carta de crédito aprovada ou valor de entrada (mín. 20%).`;
+      } else if (pagamento === 'vista') {
+        dicaEl.innerHTML = `💵 <strong>Estratégia À Vista:</strong> O sistema ampliou automaticamente o filtro em <strong>+10%</strong> acima do teto para você incluir imóveis com margem de negociação na mão.`;
+      } else {
+        dicaEl.innerHTML = `💡 <strong>Dica:</strong> Se o cliente só disse o valor máximo, envie primeiro o <strong>Script de Qualificação</strong> para saber se é à vista ou financiamento antes de mandar a lista.`;
+      }
+
+      // Define teto real de busca (+10% se for à vista para margem de negociação)
+      const tetoBusca = orcamento > 0
+        ? (pagamento === 'vista' ? orcamento * 1.10 : orcamento)
+        : Infinity;
+
+      imoveisFiltrados = todosImoveis.filter(item => {
+        if (bairro && item.bairro !== bairro) return false;
+        if (orcamento > 0 && item.valorNum > 0 && item.valorNum > tetoBusca) return false;
+
+        if (pagamento === 'financiamento' && item.documentacao) {
+          const docLow = item.documentacao.toLowerCase();
+          if (docLow.includes('posse') || docLow.includes('contrato')) return false;
+        }
+        return true;
+      });
+
+      // Ordena do menor para o maior valor para facilitar a escolha das 3 faixas
+      imoveisFiltrados.sort((a, b) => a.valorNum - b.valorNum);
+
+      document.getElementById('contadorMatch').innerText = `(${imoveisFiltrados.length})`;
+      renderImoveisMatch(orcamento);
+    }
+
+    function renderImoveisMatch(orcamento) {
+      const container = document.getElementById('listaImoveisMatch');
+      container.innerHTML = '';
+
+      if (imoveisFiltrados.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 py-4 text-center">Nenhum imóvel encontrado nesse filtro exato. Use o botão <strong>"Sem estoque exato (Captação)"</strong> ao lado para engajar o cliente.</p>`;
+        return;
+      }
+
+      imoveisFiltrados.forEach(item => {
+        const isSelected = selecionadosIds.includes(item.id);
+        let seloFaixa = '';
+
+        if (orcamento > 0 && item.valorNum > 0) {
+          if (item.valorNum > orcamento) {
+            seloFaixa = `<span class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">Margem Negociação</span>`;
+          } else if (item.valorNum <= orcamento * 0.85) {
+            seloFaixa = `<span class="text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full">Compra Racional</span>`;
+          } else {
+            seloFaixa = `<span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">No Alvo / Âncora</span>`;
+          }
+        }
+
+        const card = document.createElement('div');
+        card.className = `p-3.5 rounded-xl border transition cursor-pointer ${isSelected ? 'bg-emerald-950/40 border-emerald-500' : 'bg-slate-900/90 border-slate-700 hover:border-slate-500'}`;
+        card.onclick = () => toggleSelecionarImovel(item.id);
+
+        card.innerHTML = `
+          <div class="flex justify-between items-start gap-2">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-bold text-slate-100">${item.titulo}</span>
+                ${seloFaixa}
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">
+                📍 ${item.bairro || 'Saquarema'} ${item.rua ? `• ${item.rua}` : ''} ${item.documentacao ? `• Doc: ${item.documentacao}` : ''}
+              </p>
+            </div>
+            <div class="text-right shrink-0">
+              <span class="text-sm font-bold text-emerald-400 block">${formatarMoeda(item.valorNum)}</span>
+              <span class="text-[11px] ${isSelected ? 'text-emerald-300 font-semibold' : 'text-slate-500'}">
+                ${isSelected ? '✅ Selecionado' : '+ Selecionar'}
+              </span>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function toggleSelecionarImovel(id) {
+      if (selecionadosIds.includes(id)) {
+        selecionadosIds = selecionadosIds.filter(x => x !== id);
+      } else {
+        if (selecionadosIds.length >= 3) {
+          alert('Dica: Enviar no máximo 3 opções aumenta sua conversão e evita indecisão do cliente.');
+          return;
+        }
+        selecionadosIds.push(id);
+      }
+      document.getElementById('qtdSelecionados').innerText = `${selecionadosIds.length} selecionados`;
+      const orcamento = parseFloat(document.getElementById('orcamentoMax').value) || 0;
+      renderImoveisMatch(orcamento);
+      gerarMensagemWhatsApp();
+    }
+
+    function selecionarTop3Automatico() {
+      if (imoveisFiltrados.length === 0) return;
+      selecionadosIds = [];
+
+      if (imoveisFiltrados.length <= 3) {
+        selecionadosIds = imoveisFiltrados.map(i => i.id);
+      } else {
+        // Pega o mais em conta (racional), um intermediário (custo-benefício) e o mais próximo do teto (âncora)
+        const meio = Math.floor(imoveisFiltrados.length / 2);
+        selecionadosIds = [
+          imoveisFiltrados[0].id,
+          imoveisFiltrados[meio].id,
+          imoveisFiltrados[imoveisFiltrados.length - 1].id
+        ];
+      }
+
+      document.getElementById('qtdSelecionados').innerText = `${selecionadosIds.length} selecionados`;
+      const orcamento = parseFloat(document.getElementById('orcamentoMax').value) || 0;
+      renderImoveisMatch(orcamento);
+      gerarMensagemWhatsApp();
+    }
+
+    function gerarMensagemWhatsApp() {
+      const nome = document.getElementById('nomeCliente').value.trim();
+      const saudacao = nome ? `Olá, ${nome}! Tudo bem?` : `Olá! Tudo bem?`;
+      const orcamento = parseFloat(document.getElementById('orcamentoMax').value) || 0;
+
+      if (selecionadosIds.length === 0) {
+        aplicarScriptRapido('qualificar');
+        return;
+      }
+
+      const itens = selecionadosIds
+        .map(id => todosImoveis.find(i => i.id === id))
+        .filter(Boolean)
+        .sort((a, b) => a.valorNum - b.valorNum);
+
+      const rotulos = ['1️⃣ Opção Racional (Excelente custo)', '2️⃣ Opção Custo-Benefício', '3️⃣ Opção Destaque na Faixa'];
+
+      let corpo = `${saudacao} Aqui é o *André Reis*, corretor de imóveis aqui em Saquarema.\n\n`;
+      corpo += `Separei a dedo *${itens.length} ${itens.length > 1 ? 'opções estratégicas' : 'opção'}* dentro do perfil que você busca${orcamento > 0 ? ` (faixa de ${formatarMoeda(orcamento)})` : ''} para compararmos:\n\n`;
+
+      itens.forEach((item, idx) => {
+        const tituloRotulo = itens.length > 1 ? rotulos[idx] || `Opção ${idx + 1}` : '🏡 Imóvel Selecionado';
+        const linkMapa = gerarLinkMapaLimpo(item);
+
+        corpo += `*${tituloRotulo}*\n`;
+        corpo += `• *${item.titulo}* — ${item.bairro || 'Saquarema'}\n`;
+        corpo += `• Valor: *${formatarMoeda(item.valorNum)}*${item.documentacao ? ` (${item.documentacao})` : ''}\n`;
+        if (item.rua || item.bairro) {
+          corpo += `• 📍 Localização no mapa: ${linkMapa}\n`;
+        }
+        corpo += `\n`;
+      });
+
+      corpo += `Dessas opções, qual faz mais sentido para o que você procura hoje? Se quiser, podemos agendar uma visita rápida aqui em Saquarema para você conhecer pessoalmente.`;
+
+      atualizarCaixaTexto(corpo);
+    }
+
+    function aplicarScriptRapido(tipo) {
+      const nome = document.getElementById('nomeCliente').value.trim();
+      const saudacao = nome ? `Olá, ${nome}! Tudo bem?` : `Olá! Tudo bem?`;
+      const orcamento = parseFloat(document.getElementById('orcamentoMax').value) || 0;
+      const bairro = document.getElementById('filtroBairro').value || 'Saquarema';
+      const valorTxt = orcamento > 0 ? `até ${formatarMoeda(orcamento)}` : 'nessa faixa de valor';
+
+      let msg = '';
+
+      if (tipo === 'qualificar') {
+        msg = `${saudacao} Aqui é o *André Reis*, corretor de imóveis aqui em Saquarema.\n\nTenho ótimas opções ${valorTxt} em ${bairro} para te enviar. Para eu filtrar exatamente o que aprova e faz sentido para você, me tira duas dúvidas rápidas:\n\n1️⃣ A compra seria *à vista* ou via *financiamento bancário*?\n2️⃣ Você prioriza ficar mais perto da *praia* ou do *centro/comércio*?\n\nAssim já te mando as 3 melhores oportunidades com localização no mapa!`;
+      } else if (tipo === 'captacao') {
+        msg = `${saudacao} Aqui é o *André Reis*, corretor de imóveis aqui em Saquarema.\n\nPara o perfil exato que você pediu (${valorTxt} em ${bairro}), as unidades que eu tinha em carteira acabaram de sair, mas trabalho em parceria direta com os proprietários e construtores da região.\n\nVocê pretende fechar *à vista* ou *financiado*? Me confirma esse detalhe que eu já faço uma busca hoje mesmo nas captações novas e te retorno com 2 ou 3 opções fechadas no seu perfil.`;
+      } else {
+        if (selecionadosIds.length === 0 && imoveisFiltrados.length > 0) {
+          selecionarTop3Automatico();
+          return;
+        }
+        gerarMensagemWhatsApp();
+        return;
+      }
+
+      atualizarCaixaTexto(msg);
+    }
+
+    function atualizarCaixaTexto(texto) {
+      document.getElementById('textoWhatsApp').value = texto;
+      document.getElementById('btnAbrirWhats').href = `https://wa.me/?text=${encodeURIComponent(texto)}`;
+    }
+
+    function copiarMensagem(btn) {
+      const texto = document.getElementById('textoWhatsApp').value;
+      navigator.clipboard.writeText(texto);
+
+      const original = btn.innerText;
+      btn.innerText = '✅ Copiado!';
+      btn.classList.replace('bg-emerald-600', 'bg-cyan-600');
+      setTimeout(() => {
+        btn.innerText = original;
+        btn.classList.replace('bg-cyan-600', 'bg-emerald-600');
+      }, 2000);
+    }
+
+    function limparFiltros() {
+      document.getElementById('nomeCliente').value = '';
+      document.getElementById('orcamentoMax').value = '';
+      document.getElementById('formaPagamento').value = 'todos';
+      document.getElementById('filtroBairro').value = '';
+      selecionadosIds = [];
+      document.getElementById('qtdSelecionados').innerText = '0 selecionados';
+      filtrarImoveisMatch();
+      aplicarScriptRapido('qualificar');
+    }
+
+    window.onload = initSupabase;
+  </script>
+</body>
+</html>

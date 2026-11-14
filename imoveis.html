@@ -161,6 +161,26 @@
             </div>
           </div>
         </div>
+        <!-- Bloco 5: Documentação e Link do Anúncio -->
+        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60 space-y-3">
+          <label class="block text-emerald-400 font-medium">📄 Documentação & Divulgação</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1">Documentação</label>
+              <select id="documentacao" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white focus:border-emerald-500 focus:outline-none">
+                <option value="">Selecione a documentação...</option>
+                <option value="RGI / Escritura">RGI / Escritura (Aceita Financiamento)</option>
+                <option value="Compra e Venda">Contrato de Compra e Venda (Posse)</option>
+                <option value="Em Inventário">Em Inventário / Regularização</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1">Link do Anúncio (Seu Site)</label>
+              <input type="url" id="link" placeholder="https://andrereisimoveis.com.br/..." class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-white focus:border-emerald-500 focus:outline-none">
+            </div>
+          </div>
+        </div>
 
         <div>
           <label class="block text-slate-400 mb-1">Observações & Detalhes Internos</label>
@@ -238,7 +258,10 @@
       document.getElementById('imovelForm').reset();
       document.getElementById('imovelId').value = '';
       document.getElementById('modalTitle').innerText = imovel ? 'Editar Imóvel' : 'Novo Imóvel';
-
+          
+      document.getElementById('observacoes').value = imovel ? (imovel.observacoes || '') : '';
+      document.getElementById('documentacao').value = imovel ? (imovel.documentacao || '') : '';
+      document.getElementById('link').value = imovel ? (imovel.link || '') : '';
       if (imovel) {
         document.getElementById('imovelId').value = imovel.id;
         document.getElementById('codigo').value = imovel.codigo || '';
@@ -280,8 +303,10 @@
         whatsapp_proprietario: document.getElementById('whatsapp_proprietario').value,
         valor_venda: document.getElementById('valor_venda').value ? parseFloat(document.getElementById('valor_venda').value) : 0,
         comissao_percentual: document.getElementById('comissao_percentual').value ? parseFloat(document.getElementById('comissao_percentual').value) : null,
-        observacoes: document.getElementById('observacoes').value
-      };
+        observacoes: document.getElementById('observacoes').value,
+        documentacao: document.getElementById('documentacao').value,
+        link: document.getElementById('link').value.trim()
+        };
 
       let error;
       if (id) {
@@ -391,11 +416,14 @@
                 <span class="text-xs font-mono bg-slate-900 text-emerald-400 px-2 py-0.5 rounded border border-slate-700">Ref: ${imovel.codigo || 'N/I'}</span>
                 <h4 class="font-bold text-base text-slate-100 mt-1">${imovel.tipo_imovel} - ${imovel.bairro || 'Saquarema'}</h4>
               </div>
+              <div class="flex items-center gap-2 flex-wrap pt-1">
+                ${imovel.documentacao ? `<span class="text-[11px] px-2 py-0.5 rounded-md font-medium ${imovel.documentacao.includes('RGI') ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">📄 ${imovel.documentacao}</span>` : ''}
+                ${imovel.link ? `<a href="${imovel.link}" target="_blank" class="text-[11px] bg-cyan-600/20 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/40 px-2.5 py-1 rounded-lg transition">🔗 Ver no Site</a>` : ''}
+              </div>              
               <span class="text-xs px-2.5 py-1 rounded-full font-medium border ${statusBadge}">
                 ${imovel.status || 'Disponível'}
               </span>
             </div>
-
             <div class="text-xs text-slate-300 space-y-1 bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/50">
               <p>📍 <strong>Endereço:</strong> ${imovel.endereco || 'Não informado'} ${imovel.quadra ? `(Qda: ${imovel.quadra}, Lote: ${imovel.lote})` : ''}</p>
               <p>📄 <strong>Matrícula RGI:</strong> ${imovel.matricula || 'N/I'} • <strong>IPTU:</strong> ${imovel.iptu_inscricao || 'N/I'}</p>

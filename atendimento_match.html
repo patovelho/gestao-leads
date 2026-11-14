@@ -253,10 +253,15 @@
       aplicarScriptRapido('qualificar');
     }
 
-    function preencherBairros() {
+  function preencherBairros() {
       const select = document.getElementById('filtroBairro');
-      const bairros = [...new Set(todosImoveis.map(i => i.bairro).filter(Boolean))].sort();
-      select.innerHTML = `<option value="">Todos os bairros (${bairros.length})</option>`;
+      if (!select) return;
+      
+      const bairros = [...new Set(todosImoveis.map(i => (i.bairro || '').trim()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare('pt-BR', { sensitivity: 'base' }));
+
+      select.innerHTML = `<option value="">Todos os bairros da carteira (${bairros.length})</option>`;
+      
       bairros.forEach(b => {
         const opt = document.createElement('option');
         opt.value = b;
@@ -264,7 +269,6 @@
         select.appendChild(opt);
       });
     }
-
     function filtrarImoveisMatch() {
       const orcamento = parseFloat(document.getElementById('orcamentoMax').value) || 0;
       const pagamento = document.getElementById('formaPagamento').value;

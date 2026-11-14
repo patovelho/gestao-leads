@@ -352,7 +352,6 @@
         container.appendChild(card);
       });
     }
-
     function toggleSelecionarImovel(id) {
       if (selecionadosIds.includes(id)) {
         selecionadosIds = selecionadosIds.filter(x => x !== id);
@@ -411,16 +410,20 @@
       let corpo = `${saudacao} Aqui é o *André Reis*, corretor de imóveis aqui em Saquarema.\n\n`;
       corpo += `Separei a dedo *${itens.length} ${itens.length > 1 ? 'opções estratégicas' : 'opção'}* dentro do perfil que você busca${orcamento > 0 ? ` (faixa de ${formatarMoeda(orcamento)})` : ''} para compararmos:\n\n`;
 
-      itens.forEach((item, idx) => {
+       itens.forEach((item, idx) => {
         const tituloRotulo = itens.length > 1 ? rotulos[idx] || `Opção ${idx + 1}` : '🏡 Imóvel Selecionado';
-        const linkMapa = gerarLinkMapaLimpo(item);
 
         corpo += `*${tituloRotulo}*\n`;
         corpo += `• *${item.titulo}* — ${item.bairro || 'Saquarema'}\n`;
         corpo += `• Valor: *${formatarMoeda(item.valorNum)}*${item.documentacao ? ` (${item.documentacao})` : ''}\n`;
-        if (item.rua || item.bairro) {
-          corpo += `• 📍 Localização no mapa: ${linkMapa}\n`;
+        
+        if (item.link) {
+          corpo += `• 🔗 Fotos e detalhes: ${item.link}\n`;
+        } else {
+          corpo += `• 📍 Região no mapa: ${gerarLinkMapaLimpo(item)}\n`;
         }
+        corpo += `\n`;
+      });
         corpo += `\n`;
       });
 

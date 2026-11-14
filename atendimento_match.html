@@ -221,17 +221,47 @@
     }
 
     async function carregarCarteira() {
-      if (!supabaseClient) return;
-
-      const { data, error } = await supabaseClient
-        .from('imoveis')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        document.getElementById('statusCarteira').innerText = 'Erro ao conectar';
+      if (!supabaseClient) {
+        document.getElementById('statusCarteira').innerText = 'Erro: Supabase não conectado';
         return;
       }
+
+      try {
+        const { data, error } = await supabaseClient
+          .from('imoveis')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error("Erro do Supabase:", error);
+          document.getElementById('statusCarteira').innerText = 'Erro ao carregar: ' + error.message;
+          return;
+        }
+
+        todosImoveis = (data || []).map(i => ({
+          id: String(i.id),
+          titulo: i.titulo || i.tipo || i.descricao || 'Imóvel em Saquarema',
+          referencia: i.referencia || i.codigo || i.ref || '',
+          bairro: (i.bairro || i.regiao || i.bairro_imovel || i.localizacao || '').trim(),
+          rua: (i.rua || i.endereco || i.logradouro || '').trim(),
+          quadra: (i.quadra || '').trim(),
+          lote: (i.lote || '').trim(),
+          valorNum: parseValor(i.valor || i.preco),
+          documentacao: (i.documentacao || i.doc || i.situacao_doc || '').trim(),
+          link: i.link || '',
+          quartos: i.quartos || i.dormitorios || '',
+          status: i.status || 'Disponível'
+        }));
+
+        document.getElementById('statusCarteira').innerText = `${todosImoveis.length} imóveis ativos`;
+        preencherBairros();
+        filtrarImoveisMatch();
+
+      } catch (err) {
+        console.error("Erro geral:", err);
+        document.getElementById('statusCarteira').innerText = 'Erro no script de carga';
+      }
+    }
 
       todosImoveis = (data || []).map(i => ({
         id: String(i.id),

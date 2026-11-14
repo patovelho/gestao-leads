@@ -36,7 +36,8 @@
       
       <!-- Caixa de Busca por Nome, Celular ou E-mail -->
       <div class="relative w-full sm:w-80">
-        <input type="search" id="searchInput" oninput="debounceSearch()" placeholder="Buscar por nome, celular ou e-mail..." class="bg-slate-800 border border-slate-700 rounded-xl pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-amber-500 w-full text-white">
+        <input type="search" id="searchInput" name="search_leads" readonly onfocus="this.removeAttribute('readonly')" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" oninput="debounceSearch()" placeholder="Buscar por nome ou celular..." class="bg-slate-800 border border-slate-700 rounded-xl pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-blue-500 w-full text-white">
+        <!-- <input type="search" id="searchInput" oninput="debounceSearch()" placeholder="Buscar por nome, celular ou e-mail..." class="bg-slate-800 border border-slate-700 rounded-xl pl-4 pr-10 py-2 text-sm focus:outline-none focus:border-amber-500 w-full text-white"> -->
         <button onclick="clearSearch()" title="Limpar busca" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-sm bg-slate-700/60 hover:bg-slate-700 w-6 h-6 rounded-full flex items-center justify-center transition">
           ✕
         </button>

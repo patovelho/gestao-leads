@@ -1,63 +1,72 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Simulador de Financiamento - André Reis Imóveis</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Supabase Client -->
+  <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { background-color: #0b0f19; color: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; }
   </style>
 </head>
-<body class="min-h-screen p-4 md:p-6">
-  <!-- TOPO / HEADER -->
-  <header class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between pb-6 mb-6 border-b border-slate-800 gap-4">
-    <div class="flex items-center gap-3">
-      <a href="index.html" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2">
-        ← Hub
-      </a>
-      <h1 class="text-xl md:text-2xl font-bold text-slate-100 flex items-center gap-2">
-        🏦 Simulador de Financiamento
-      </h1>
-    </div>
-    <div class="flex items-center gap-3">
-      <span id="statusCarteira" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Sincronizando...</span>
-      </a>
-    </div>
-  </header>
+<body class="min-h-screen p-4 md:p-8 flex flex-col justify-between">
 
-  <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+  <div class="max-w-7xl mx-auto w-full">
+    <!-- TOPO / HEADER -->
+    <header class="flex flex-col md:flex-row items-center justify-between pb-6 mb-6 border-b border-slate-800 gap-4">
+      <div class="flex items-center gap-3">
+        <a href="index.html" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2">
+          ← Hub
+        </a>
+        <h1 class="text-xl md:text-2xl font-bold text-slate-100 flex items-center gap-2">
+          🏦 Simulador de Financiamento
+        </h1>
+      </div>
+      
+      <div class="flex flex-wrap items-center gap-2.5">
+        <span id="statusCarteira" class="text-xs px-3 py-1.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">Sincronizando...</span>
+        
+        <button onclick="abrirModalAjuda()" class="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5">
+          ❓ Qual taxa escolher?
+        </button>
 
-    <!-- COLUNA ESQUERDA: SELEÇÃO DO IMÓVEL E PARÂMETROS -->
-    <section class="lg:col-span-6 space-y-6">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-bold uppercase tracking-wider text-emerald-400">
-            1. Selecionar Imóvel da Carteira (RGI)
-          </h2>
-          <button onclick="resetarSimulacao()" class="text-xs text-slate-400 hover:text-slate-200 transition">Limpar</button>
-        </div>
+        <a href="https://www8.caixa.gov.br/siopiinternet-web/simulaOperacaoInternet.do?method=inicializarCasoUso" target="_blank" class="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 px-3 py-1.5 rounded-xl text-xs font-medium transition flex items-center gap-1.5">
+          🔗 Simulador Caixa
+        </a>
+      </div>
+    </header>
 
-        <div class="space-y-4">
+    <!-- LAYOUT PRINCIPAL (2 COLUNAS) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- COLUNA ESQUERDA: ENTRADAS (6 Colunas) -->
+      <div class="lg:col-span-6 space-y-6">
+
+        <!-- 1. SELECIONAR IMÓVEL -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold text-emerald-400">1. SELECIONAR IMÓVEL DA CARTEIRA (RGI)</h2>
+            <button onclick="limparImovel()" class="text-xs text-slate-400 hover:text-slate-200">Limpar</button>
+          </div>
+
           <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1">Escolha um imóvel apto para financiamento:</label>
-            <select id="selectImovel" onchange="selecionarImovelCarteira()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
-              <option value="">Carregando imóveis com RGI...</option>
+            <label class="block text-xs text-slate-400 mb-1.5">Escolha um imóvel apto para financiamento:</label>
+            <select id="selectImovel" onchange="selecionarImovelCarteira()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
+              <option value="">-- Carregando imóveis disponíveis --</option>
             </select>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
             <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1">Nome do Cliente (Opcional)</label>
-              <input type="text" id="nomeCliente" oninput="calcularFinanciamento()" placeholder="ex: Carlos, Mariana..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
+              <label class="block text-xs text-slate-400 mb-1">Nome do Cliente (Opcional)</label>
+              <input type="text" id="nomeCliente" oninput="atualizarResumo()" placeholder="ex: Carlos, Mariana..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
             </div>
             <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1">Modalidade / Taxa Base</label>
-              <select id="modalidadeTaxa" onchange="aplicarTaxaModalidade()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 transition">
+              <label class="block text-xs text-slate-400 mb-1">Modalidade / Taxa Base</label>
+              <select id="selectModalidade" onchange="mudarModalidade()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500">
                 <option value="9.99">SBPE / Mercado (~9,99% a.a.)</option>
                 <option value="8.16">MCMV Faixa 3 (~8,16% a.a.)</option>
                 <option value="7.00">MCMV Faixa 2 (~7,00% a.a.)</option>
@@ -66,332 +75,95 @@
             </div>
           </div>
         </div>
+
+        <!-- 2. VALORES E CONDIÇÕES -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-bold text-cyan-400">2. VALORES E CONDIÇÕES (AUTOMÁTICO)</h2>
+            <span class="text-[10px] text-slate-500">Edite apenas se o cliente pedir</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Valor do Imóvel (R$)</label>
+              <input type="number" id="valorImovel" oninput="calcularSimulacao()" value="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Entrada + FGTS (Padrão 20%)</label>
+              <input type="number" id="valorEntrada" oninput="calcularSimulacao()" value="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3 pt-2">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Prazo (Meses)</label>
+              <input type="number" id="prazoMeses" oninput="calcularSimulacao()" value="360" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Juros (% a.a.)</label>
+              <input type="number" step="0.01" id="taxaJuros" oninput="calcularSimulacao()" value="9.99" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1">Docs/ITBI (%)</label>
+              <input type="number" step="0.1" id="taxaDocs" oninput="calcularSimulacao()" value="4.5" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. RESUMO FINANCEIRO ESTIMADO (TABELA SAC) -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+          <h2 class="text-sm font-bold text-amber-400">3. RESUMO FINANCEIRO ESTIMADO (TABELA SAC)</h2>
+          <div class="grid grid-cols-3 gap-2 pt-1">
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <span class="block text-[10px] text-slate-400">Valor Financiado (80%)</span>
+              <span id="resFinanciado" class="text-xs font-bold text-slate-100">R$ 0</span>
+            </div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <span class="block text-[10px] text-slate-400">1ª Parcela Estimada</span>
+              <span id="resPrimeiraParcela" class="text-xs font-bold text-emerald-400">R$ 0</span>
+            </div>
+            <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <span class="block text-[10px] text-slate-400">Última Parcela</span>
+              <span id="resUltimaParcela" class="text-xs font-bold text-slate-300">R$ 0</span>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <!-- AJUSTE FINO (OPCIONAL - JÁ VEM PREENCHIDO AUTOMATICAMENTE) -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-sm font-bold uppercase tracking-wider text-cyan-400">
-            2. Valores e Condições (Automático)
-          </h2>
-          <span class="text-[11px] text-slate-400">Edite apenas se o cliente pedir</span>
-        </div>
+      <!-- COLUNA DIREITA: SAÍDA WHATSAPP (6 Colunas) -->
+      <div class="lg:col-span-6 space-y-6">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4 h-full flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+              <h2 class="text-sm font-bold text-emerald-400">4. RESUMO PRONTO P/ WHATSAPP</h2>
+              <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <input type="checkbox" id="checkDocs" checked onchange="atualizarResumo()" class="rounded bg-slate-950 border-slate-800 text-emerald-500 focus:ring-0">
+                Incluir lista de documentos
+              </label>
+            </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1">Valor do Imóvel (R$)</label>
-            <input type="number" id="valorImovel" oninput="aoAlterarValorImovel()" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 transition">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1">Entrada + FGTS (Padrão 20%)</label>
-            <input type="number" id="valorEntrada" oninput="calcularFinanciamento()" placeholder="0" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 transition">
-          </div>
-        </div>
+            <p class="text-[11px] text-slate-400 mb-3">
+              💡 Já inclui o valor da entrada, estimativa de cartório/ITBI, parcela inicial, renda necessária e o link do anúncio do seu site (se cadastrado).
+            </p>
 
-        <div class="grid grid-cols-3 gap-3 mt-4">
-          <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1">Prazo (Meses)</label>
-            <input type="number" id="prazoMeses" value="360" oninput="calcularFinanciamento()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 transition">
+            <!-- CAIXA DE TEXTO DO WHATSAPP -->
+            <div class="relative">
+              <textarea id="textoWhatsapp" rows="16" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-emerald-500 leading-relaxed"></textarea>
+            </div>
           </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1">Juros (% a.a.)</label>
-            <input type="number" step="0.01" id="taxaAnual" value="9.99" oninput="calcularFinanciamento()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 transition">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1">Docs/ITBI (%)</label>
-            <input type="number" step="0.5" id="percDocs" value="4.5" oninput="calcularFinanciamento()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 transition">
+
+          <div class="pt-3">
+            <button onclick="copiarTexto()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold py-3 rounded-xl text-xs transition shadow-lg flex items-center justify-center gap-2">
+              📋 Copiar Mensagem para o WhatsApp
+            </button>
           </div>
         </div>
       </div>
 
-      <!-- RESULTADO VISUAL RÁPIDO -->
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-amber-400 mb-4">
-          3. Resumo Financeiro Estimado (Tabela SAC)
-        </h2>
+    </div>
+  </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <span class="text-[11px] text-slate-400 block">Valor Financiado (80%)</span>
-            <span id="resFinanciado" class="text-sm font-bold text-slate-100">R$ 0</span>
-          </div>
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <span class="text-[11px] text-slate-400 block">1ª Parcela Estimada</span>
-            <span id="resPrimeiraParcela" class="text-sm font-bold text-emerald-400">R$ 0</span>
-          </div>
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <span class="text-[11px] text-slate-400 block">Última Parcela</span>
-            <span id="resUltimaParcela" class="text-sm font-bold text-slate-300">R$ 0</span>
-          </div>
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <span class="text-[11px] text-slate-400 block">Renda Familiar Mínima</span>
-            <span id="resRendaMinima" class="text-sm font-bold text-cyan-400">R$ 0</span>
-          </div>
-          <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <span class="text-[11px] text-slate-400 block">Docs + ITBI (~4,5%)</span>
-            <span id="resDocumentacao" class="text-sm font-bold text-amber-300">R$ 0</span>
-          </div>
-          <div class="bg-emerald-950/30 p-3 rounded-xl border border-emerald-500/40">
-            <span class="text-[11px] text-emerald-300 block">Total Recursos Próprios</span>
-            <span id="resTotalBolso" class="text-sm font-bold text-emerald-400">R$ 0</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- COLUNA DIREITA: MENSAGEM PRONTA PARA O WHATSAPP -->
-    <section class="lg:col-span-6 space-y-6">
-      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col h-full">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="text-sm font-bold uppercase tracking-wider text-emerald-400">
-            4. Resumo Pronto p/ WhatsApp
-          </h2>
-          <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
-            <input type="checkbox" id="incluirChecklistDocs" checked onchange="calcularFinanciamento()" class="rounded border-slate-700 text-emerald-500 bg-slate-950">
-            Incluir lista de documentos
-          </label>
-        </div>
-
-        <div class="mb-3 p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-400">
-          💡 Já inclui o valor da entrada, estimativa de cartório/ITBI, parcela inicial, renda necessária e o link do anúncio do seu site (se cadastrado).
-        </div>
-
-        <div class="flex-grow flex flex-col mb-4">
-          <textarea id="textoWhatsapp" rows="16" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 font-mono transition resize-none"></textarea>
-        </div>
-
-        <div class="flex items-center gap-3 pt-2 border-t border-slate-800">
-          <button onclick="copiarMensagem()" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold py-2.5 px-4 rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-lg shadow-emerald-950/40">
-            📋 Copiar Simulação
-          </button>
-          <button onclick="abrirWhatsapp()" class="flex-1 bg-emerald-700/30 hover:bg-emerald-700/50 text-emerald-300 border border-emerald-600/40 font-semibold py-2.5 px-4 rounded-xl text-sm transition flex items-center justify-center gap-2">
-            💬 Enviar no Whats
-          </button>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <script>
-    let supabaseClient = null;
-    let imoveisFinanciaveis = [];
-    let imovelSelecionadoAtual = null;
-
-    window.addEventListener('DOMContentLoaded', async () => {
-      const config = JSON.parse(localStorage.getItem('andre_reis_config') || '{}');
-      if (config.supabaseUrl && config.supabaseKey) {
-        supabaseClient = window.supabase.createClient(config.supabaseUrl, config.supabaseKey);
-        await carregarImoveisCarteira();
-      } else {
-        document.getElementById('statusCarteira').innerText = 'Configure o Supabase no Hub';
-        document.getElementById('selectImovel').innerHTML = '<option value="">Sem conexão com a carteira (digite o valor abaixo)</option>';
-      }
-      calcularFinanciamento();
-    });
-
-    async function carregarImoveisCarteira() {
-      try {
-        const { data, error } = await supabaseClient
-          .from('imoveis')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        // Filtra apenas imóveis Disponíveis e que possuem RGI ou Escritura
-        imoveisFinanciaveis = (data || [])
-          .filter(i => {
-            const statusOk = (i.status || '').trim().toLowerCase() === 'disponível';
-            const doc = (i.documentacao || i.doc || '').toUpperCase();
-            const docOk = doc.includes('RGI') || doc.includes('ESCRITURA');
-            return statusOk && docOk;
-          })
-          .map(i => ({
-            id: String(i.id),
-            titulo: i.titulo || i.tipo || i.descricao || 'Imóvel em Saquarema',
-            referencia: i.referencia || i.codigo || i.ref || '',
-            bairro: (i.bairro || i.regiao || 'Saquarema').trim(),
-            valorNum: parseValor(i.valor_venda || i.valor || i.preco),
-            link: i.link || ''
-          }));
-
-        document.getElementById('statusCarteira').innerText = `${imoveisFinanciaveis.length} imóveis com RGI`;
-
-        const select = document.getElementById('selectImovel');
-        if (imoveisFinanciaveis.length === 0) {
-          select.innerHTML = '<option value="">Nenhum imóvel disponível com RGI encontrado</option>';
-          return;
-        }
-
-        select.innerHTML = '<option value="">-- Selecione um imóvel da carteira --</option>';
-        imoveisFinanciaveis.forEach(imovel => {
-          const opt = document.createElement('option');
-          opt.value = imovel.id;
-          const refTxt = imovel.referencia ? `[Ref: ${imovel.referencia}] ` : '';
-          opt.textContent = `${refTxt}${imovel.titulo} — ${imovel.bairro} (${formatarMoeda(imovel.valorNum)})`;
-          select.appendChild(opt);
-        });
-
-      } catch (err) {
-        console.error('Erro ao carregar imóveis:', err);
-        document.getElementById('statusCarteira').innerText = 'Erro ao carregar carteira';
-      }
-    }
-
-    function parseValor(val) {
-      if (!val) return 0;
-      if (typeof val === 'number') return val;
-      const limpo = String(val).replace(/[R$\s.]/g, '').replace(',', '.');
-      return parseFloat(limpo) || 0;
-    }
-
-    function formatarMoeda(num) {
-      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(num || 0);
-    }
-
-    function selecionarImovelCarteira() {
-      const id = document.getElementById('selectImovel').value;
-      imovelSelecionadoAtual = imoveisFinanciaveis.find(i => i.id === id) || null;
-
-      if (imovelSelecionadoAtual) {
-        const valor = imovelSelecionadoAtual.valorNum;
-        document.getElementById('valorImovel').value = valor;
-        document.getElementById('valorEntrada').value = Math.round(valor * 0.20); // 20% automático
-      } else {
-        document.getElementById('valorImovel').value = '';
-        document.getElementById('valorEntrada').value = '';
-      }
-      calcularFinanciamento();
-    }
-
-    function aoAlterarValorImovel() {
-      const valor = parseFloat(document.getElementById('valorImovel').value) || 0;
-      document.getElementById('valorEntrada').value = Math.round(valor * 0.20);
-      calcularFinanciamento();
-    }
-
-    function aplicarTaxaModalidade() {
-      const taxa = document.getElementById('modalidadeTaxa').value;
-      document.getElementById('taxaAnual').value = taxa;
-      calcularFinanciamento();
-    }
-
-    function calcularFinanciamento() {
-      const valorImovel = parseFloat(document.getElementById('valorImovel').value) || 0;
-      const entrada = parseFloat(document.getElementById('valorEntrada').value) || 0;
-      const prazo = parseInt(document.getElementById('prazoMeses').value) || 360;
-      const taxaAnual = parseFloat(document.getElementById('taxaAnual').value) || 9.99;
-      const percDocs = parseFloat(document.getElementById('percDocs').value) || 4.5;
-
-      const valorFinanciado = Math.max(0, valorImovel - entrada);
-      
-      // Taxa mensal equivalente + taxas operacionais/seguros estimados (MIP/DFI/Taxa adm ~ R$ 65)
-      const taxaMensal = Math.pow(1 + (taxaAnual / 100), 1 / 12) - 1;
-      const amortizacao = prazo > 0 ? (valorFinanciado / prazo) : 0;
-      const segurosETaxas = valorFinanciado > 0 ? 65 : 0;
-
-      const primeiraParcela = valorFinanciado > 0 ? (amortizacao + (valorFinanciado * taxaMensal) + segurosETaxas) : 0;
-      const ultimaParcela = valorFinanciado > 0 ? (amortizacao + (amortizacao * taxaMensal) + segurosETaxas) : 0;
-      
-      // Regra padrão dos bancos: parcela não pode ultrapassar 30% da renda bruta familiar
-      const rendaMinima = primeiraParcela > 0 ? (primeiraParcela / 0.30) : 0;
-      const custoDocumentacao = valorImovel * (percDocs / 100);
-      const totalRecursosProprios = entrada + custoDocumentacao;
-
-      // Atualiza cards na tela
-      document.getElementById('resFinanciado').innerText = formatarMoeda(valorFinanciado);
-      document.getElementById('resPrimeiraParcela').innerText = formatarMoeda(primeiraParcela);
-      document.getElementById('resUltimaParcela').innerText = formatarMoeda(ultimaParcela);
-      document.getElementById('resRendaMinima').innerText = formatarMoeda(rendaMinima);
-      document.getElementById('resDocumentacao').innerText = formatarMoeda(custoDocumentacao);
-      document.getElementById('resTotalBolso').innerText = formatarMoeda(totalRecursosProprios);
-
-      gerarMensagemWhatsApp({
-        valorImovel,
-        entrada,
-        valorFinanciado,
-        primeiraParcela,
-        ultimaParcela,
-        rendaMinima,
-        custoDocumentacao,
-        totalRecursosProprios,
-        prazo
-      });
-    }
-
-    function gerarMensagemWhatsApp(dados) {
-      const nome = document.getElementById('nomeCliente').value.trim();
-      const saudacao = nome ? `Olá, ${nome}!` : `Olá! Tudo bem?`;
-      const incluirDocs = document.getElementById('incluirChecklistDocs').checked;
-
-      let msg = `${saudacao} Aqui é o *André Reis*, corretor de imóveis aqui em Saquarema.\n\n`;
-
-      if (dados.valorImovel === 0) {
-        msg += `Selecione um imóvel acima ou informe o valor para gerar a simulação completa de financiamento.`;
-        document.getElementById('textoWhatsapp').value = msg;
-        return;
-      }
-
-      if (imovelSelecionadoAtual) {
-        msg += `Preparei uma estimativa de financiamento para o imóvel:\n`;
-        msg += `🏡 *${imovelSelecionadoAtual.titulo}* — ${imovelSelecionadoAtual.bairro}\n`;
-        if (imovelSelecionadoAtual.link) {
-          msg += `🔗 ${imovelSelecionadoAtual.link}\n`;
-        }
-        msg += `\n`;
-      } else {
-        msg += `Preparei uma estimativa inicial de financiamento para o valor desejado:\n\n`;
-      }
-
-      msg += `📊 *Resumo da Simulação (${dados.prazo} meses - SAC)*\n`;
-      msg += `• Valor do Imóvel: *${formatarMoeda(dados.valorImovel)}*\n`;
-      msg += `• Entrada / FGTS: *${formatarMoeda(dados.entrada)}*\n`;
-      msg += `• Valor Financiado: *${formatarMoeda(dados.valorFinanciado)}*\n`;
-      msg += `• 1ª Parcela (estimada): *${formatarMoeda(dados.primeiraParcela)}*\n`;
-      msg += `• Última Parcela: *${formatarMoeda(dados.ultimaParcela)}*\n`;
-      msg += `• Renda familiar bruta sugerida: *${formatarMoeda(dados.rendaMinima)}*\n\n`;
-
-      msg += `💼 *Planejamento para Assinatura:*\n`;
-      msg += `• Reserva p/ ITBI + Registro (~4,5%): *${formatarMoeda(dados.custoDocumentacao)}*\n`;
-      msg += `• Total necessário (Entrada + Docs): *${formatarMoeda(dados.totalRecursosProprios)}*\n`;
-
-      if (incluirDocs) {
-        msg += `\n📋 *Documentos para aprovar seu crédito sem compromisso:*\n`;
-        msg += `1. RG e CPF (ou CNH) do casal/compradores\n`;
-        msg += `2. Comprovante de estado civil (Certidão de Nascimento ou Casamento)\n`;
-        msg += `3. Comprovante de residência atual\n`;
-        msg += `4. Comprovante de renda (3 últimos contracheques ou Declaração de IR)\n`;
-      }
-
-      msg += `\nSe quiser que eu rode a aprovação exata no sistema da Caixa com o seu perfil, é só me enviar por aqui!`;
-
-      document.getElementById('textoWhatsapp').value = msg;
-    }
-
-    function resetarSimulacao() {
-      document.getElementById('selectImovel').value = '';
-      document.getElementById('nomeCliente').value = '';
-      document.getElementById('valorImovel').value = '';
-      document.getElementById('valorEntrada').value = '';
-      imovelSelecionadoAtual = null;
-      calcularFinanciamento();
-    }
-
-    function copiarMensagem() {
-      const textarea = document.getElementById('textoWhatsapp');
-      textarea.select();
-      document.execCommand('copy');
-      alert('Simulação copiada para a área de transferência!');
-    }
-
-    function abrirWhatsapp() {
-      const texto = document.getElementById('textoWhatsapp').value;
-      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
-      window.open(url, '_blank');
-    }
-  </script>
-</body>
   <!-- MODAL DE AJUDA / GUIA DE TAXAS -->
   <div id="modalAjuda" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
@@ -403,25 +175,25 @@
       </div>
 
       <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
-        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
           <strong class="text-emerald-400 text-sm block mb-1">🔹 SBPE / Mercado (~9,99% a.a.)</strong>
-          <p>• <strong>Padrão para imóveis acima de R$ 350 mil</strong> ou quando o cliente já possui outro imóvel no nome.</p>
+          <p>• <strong>Padrão para imóveis acima de R$ 350 mil</strong> ou quando o cliente já possui outro imóvel em seu nome.</p>
           <p class="mt-1">• Use sempre que o imóvel passar do teto do Minha Casa Minha Vida (ex: imóveis mais altos como no Gravatá).</p>
         </div>
 
-        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
           <strong class="text-emerald-400 text-sm block mb-1">🔹 MCMV Faixa 3 (~8,16% a.a.)</strong>
           <p>• Para imóveis de até <strong>R$ 350.000</strong> (primeiro imóvel do comprador).</p>
           <p class="mt-1">• Renda familiar bruta entre R$ 4.400 e R$ 8.000.</p>
         </div>
 
-        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
           <strong class="text-emerald-400 text-sm block mb-1">🔹 MCMV Faixa 2 (~7,00% a.a.)</strong>
           <p>• Para imóveis econômicos/populares (faixa de R$ 200 mil a R$ 264 mil).</p>
           <p class="mt-1">• Renda familiar bruta até R$ 4.400 (primeiro imóvel).</p>
         </div>
 
-        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
           <strong class="text-emerald-400 text-sm block mb-1">🔹 Outros Bancos (~10,99% a.a.)</strong>
           <p>• Itaú, Bradesco, Santander, Banco do Brasil.</p>
           <p class="mt-1">• Use se o cliente faz questão de financiar no banco onde já é correntista ou para alta renda.</p>
@@ -436,13 +208,193 @@
     </div>
   </div>
 
+  <!-- SCRIPT DE CONEXÃO E CÁLCULO -->
   <script>
-    // Funções para abrir e fechar o guia de ajuda
+    // Configuração Supabase
+    const SUPABASE_URL = 'https://seu-projeto.supabase.co'; // Substitua pela sua URL real se necessário ou mantenha sua chave
+    const SUPABASE_ANON_KEY = 'sua-chave-anon';
+    
+    // Tentativa de carregar do cliente global se existir, senão instancia
+    let supabaseClient;
+    try {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    } catch(e) {
+      console.log("Supabase aguardando credenciais.");
+    }
+
+    let listaImoveisGlobal = [];
+
+    // Funções de Modal de Ajuda
     function abrirModalAjuda() {
       document.getElementById('modalAjuda').classList.remove('hidden');
     }
     function fecharModalAjuda() {
       document.getElementById('modalAjuda').classList.add('hidden');
     }
+
+    // Carregar Imóveis RGI Disponíveis
+    async function carregarImoveis() {
+      const statusEl = document.getElementById('statusCarteira');
+      const selectEl = document.getElementById('selectImovel');
+      
+      try {
+        statusEl.textContent = "Buscando carteira...";
+        
+        // Exemplo simulado ou busca real no Supabase
+        // Certifique-se de usar sua tabela 'imoveis'
+        const { data, error } = await supabaseClient
+          .from('imoveis')
+          .select('*')
+          .eq('status', 'Disponível')
+          .ilike('documentacao', '%RGI%');
+
+        if (error) throw error;
+
+        listaImoveisGlobal = data || [];
+        statusEl.textContent = `${listaImoveisGlobal.length} imóveis com RGI`;
+        statusEl.className = "text-xs px-3 py-1.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/50";
+
+        selectEl.innerHTML = '<option value="">-- Selecione um imóvel da carteira --</option>';
+        listaImoveisGlobal.forEach((imv, idx) => {
+          const opt = document.createElement('option');
+          opt.value = idx;
+          opt.textContent = `[Ref: ${imv.bairro || 'Geral'}] ${imv.titulo || 'Imóvel em Saquarema'} — R$ ${Number(imv.valor_venda || 0).toLocaleString('pt-BR')}`;
+          selectEl.appendChild(opt);
+        });
+
+      } catch (err) {
+        console.warn("Modo offline ou erro ao carregar do Supabase:", err);
+        statusEl.textContent = "Modo Demonstração";
+        statusEl.className = "text-xs px-3 py-1.5 rounded-full bg-amber-950 text-amber-400 border border-amber-800/50";
+        
+        // Imóvel de exemplo caso esteja testando isolado
+        listaImoveisGlobal = [{
+          bairro: 'Gravatá',
+          titulo: 'Imóvel em Saquarema',
+          valor_venda: 550000,
+          link: '#'
+        }];
+        selectEl.innerHTML = '<option value="0">[Ref: Gravatá] Imóvel em Saquarema — R$ 550.000 (Exemplo)</option>';
+      }
+    }
+
+    function selecionarImovelCarteira() {
+      const idx = document.getElementById('selectImovel').value;
+      if (idx === "") return;
+      const imv = listaImoveisGlobal[idx];
+      if (!imv) return;
+
+      document.getElementById('valorImovel').value = imv.valor_venda || 0;
+      document.getElementById('valorEntrada').value = Math.round((imv.valor_venda || 0) * 0.20);
+      
+      // Ajusta taxa automática baseada no valor
+      if ((imv.valor_venda || 0) <= 350000) {
+        document.getElementById('selectModalidade').value = "8.16";
+        document.getElementById('taxaJuros').value = "8.16";
+      } else {
+        document.getElementById('selectModalidade').value = "9.99";
+        document.getElementById('taxaJuros').value = "9.99";
+      }
+
+      calcularSimulacao();
+    }
+
+    function mudarModalidade() {
+      const taxa = document.getElementById('selectModalidade').value;
+      document.getElementById('taxaJuros').value = taxa;
+      calcularSimulacao();
+    }
+
+    function limparImovel() {
+      document.getElementById('selectImovel').value = "";
+      document.getElementById('valorImovel').value = 0;
+      document.getElementById('valorEntrada').value = 0;
+      calcularSimulacao();
+    }
+
+    // Cálculo Tabela SAC e Formatação WhatsApp
+    function calcularSimulacao() {
+      const valorImovel = parseFloat(document.getElementById('valorImovel').value) || 0;
+      const entrada = parseFloat(document.getElementById('valorEntrada').value) || 0;
+      const prazo = parseInt(document.getElementById('prazoMeses').value) || 360;
+      const taxaAnual = parseFloat(document.getElementById('taxaJuros').value) || 9.99;
+      const percDocs = parseFloat(document.getElementById('taxaDocs').value) || 4.5;
+      const cliente = document.getElementById('nomeCliente').value.trim();
+
+      const financiado = Math.max(0, valorImovel - entrada);
+      const taxaMensal = (taxaAnual / 100) / 12;
+
+      let primeiraParcela = 0;
+      let ultimaParcela = 0;
+
+      if (financiado > 0 && prazo > 0) {
+        const amortizacao = financiado / prazo;
+        const jurosPrimeiro = financiado * taxaMensal;
+        primeiraParcela = amortizacao + jurosPrimeiro;
+
+        const saldoDevedorUltimo = amortizacao;
+        const jurosUltimo = saldoDevedorUltimo * taxaMensal;
+        ultimaParcela = amortizacao + jurosUltimo;
+      }
+
+      // Renda necessária (30% da primeira parcela)
+      const rendaNecessaria = primeiraParcela / 0.30;
+      // Reserva cartório / ITBI
+      const reservaDocs = valorImovel * (percDocs / 100);
+      const totalNecessario = entrada + reservaDocs;
+
+      // Exibe nos cards
+      document.getElementById('resFinanciado').textContent = `R$ ${financiado.toLocaleString('pt-BR', {maximumFractionDigits: 0})}`;
+      document.getElementById('resPrimeiraParcela').textContent = `R$ ${primeiraParcela.toLocaleString('pt-BR', {maximumFractionDigits: 0})}`;
+      document.getElementById('resUltimaParcela').textContent = `R$ ${ultimaParcela.toLocaleString('pt-BR', {maximumFractionDigits: 0})}`;
+
+      // Monta texto do WhatsApp
+      const saudacao = cliente ? `Olá, *${cliente}*!` : `Olá! Tudo bem?`;
+      const incluirDocs = document.getElementById('checkDocs').checked;
+      
+      let idxSel = document.getElementById('selectImovel').value;
+      let imvRef = idxSel !== "" ? listaImoveisGlobal[idxSel] : null;
+      let linkImovelStr = imvRef && imvRef.link ? `\n\n🔗 *Veja os detalhes e fotos do imóvel:* \n${imvRef.link}` : '';
+
+      let texto = `${saudacao} Aqui é o *André Reis*, corretor de imóveis em Saquarema.\n\n` +
+        `Preparei uma simulação estimada de financiamento para o imóvel escolhido:\n\n` +
+        `• *Valor do Imóvel:* R$ ${valorImovel.toLocaleString('pt-BR', {maximumFractionDigits: 0})}\n` +
+        `• *Entrada / FGTS:* R$ ${entrada.toLocaleString('pt-BR', {maximumFractionDigits: 0})} (aprox. 20%)\n` +
+        `• *Valor Financiado:* R$ ${financiado.toLocaleString('pt-BR', {maximumFractionDigits: 0})}\n` +
+        `• *Prazo:* ${prazo} meses (${prazo/12} anos) | Taxa: ${taxaAnual}% a.a.\n\n` +
+        `📊 *Projeção de Parcelas (Tabela SAC):*\n` +
+        `• *1ª Parcela (estimada):* *R$ ${primeiraParcela.toLocaleString('pt-BR', {maximumFractionDigits: 0})}*\n` +
+        `• *Última Parcela:* *R$ ${ultimaParcela.toLocaleString('pt-BR', {maximumFractionDigits: 0})}*\n` +
+        `• *Renda familiar bruta sugerida:* *R$ ${rendaNecessaria.toLocaleString('pt-BR', {maximumFractionDigits: 0})}*\n\n` +
+        `💼 *Planejamento para Assinatura:*\n` +
+        `• *Reserva p/ ITBI + Registro (~${percDocs}%):* *R$ ${reservaDocs.toLocaleString('pt-BR', {maximumFractionDigits: 0})}*\n` +
+        `• *Total necessário (Entrada + Docs):* *R$ ${totalNecessario.toLocaleString('pt-BR', {maximumFractionDigits: 0})}*`;
+
+      if (incluirDocs) {
+        texto += `\n\n📋 *Documentos para aprovar seu crédito sem compromisso:*\n` +
+          `1. RG e CPF (ou CNH) do casal/compradores\n` +
+          `2. Comprovante de estado civil (Certidão de Nascimento ou Casamento)\n` +
+          `3. Comprovante de residência atual\n` +
+          `4. Comprovante de renda (3 últimos contracheques ou Declaração de IR)`;
+      }
+
+      texto += `${linkImovelStr}\n\nSe quiser que eu rode a aprovação exata no sistema da Caixa com o seu perfil, é só me enviar por aqui!`;
+
+      document.getElementById('textoWhatsapp').value = texto;
+    }
+
+    function copiarTexto() {
+      const textarea = document.getElementById('textoWhatsapp');
+      textarea.select();
+      navigator.clipboard.writeText(textarea.value);
+      alert("✅ Mensagem copiada para a área de transferência!");
+    }
+
+    // Inicialização ao carregar a página
+    window.onload = () => {
+      carregarImoveis();
+      calcularSimulacao();
+    };
   </script>
+</body>
 </html>

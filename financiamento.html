@@ -233,6 +233,7 @@
     }
 
     // Carregar Imóveis RGI Disponíveis
+    // Carregar Imóveis RGI Disponíveis (Busca flexível)
     async function carregarImoveis() {
       const statusEl = document.getElementById('statusCarteira');
       const selectEl = document.getElementById('selectImovel');
@@ -240,21 +241,30 @@
       try {
         statusEl.textContent = "Buscando carteira...";
         
-        // Exemplo simulado ou busca real no Supabase
-        // Certifique-se de usar sua tabela 'imoveis'
+        // Busca todos os imóveis disponíveis e filtra no código para evitar travar em variações de texto
         const { data, error } = await supabaseClient
           .from('imoveis')
           .select('*')
-          .eq('status', 'Disponível')
-          .ilike('documentacao', '%RGI%');
+          .eq('status', 'Disponível');
 
         if (error) throw error;
 
-        listaImoveisGlobal = data || [];
+        // Filtro flexível para aceitar RGI, rgi, Escritura, etc.
+        listaImoveisGlobal = (data || []).filter(imv => {
+          const doc = (imv.documentacao || '').toLowerCase();
+          return doc.includes('rgi') || doc.includes('escritura') || doc.includes('definitiva');
+        });
+
         statusEl.textContent = `${listaImoveisGlobal.length} imóveis com RGI`;
         statusEl.className = "text-xs px-3 py-1.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/50";
 
         selectEl.innerHTML = '<option value="">-- Selecione um imóvel da carteira --</option>';
+        
+        if (listaImoveisGlobal.length === 0) {
+          selectEl.innerHTML = '<option value="">Nenhum imóvel com RGI/Escritura encontrado</option>';
+          return;
+        }
+
         listaImoveisGlobal.forEach((imv, idx) => {
           const opt = document.createElement('option');
           opt.value = idx;
@@ -267,7 +277,6 @@
         statusEl.textContent = "Modo Demonstração";
         statusEl.className = "text-xs px-3 py-1.5 rounded-full bg-amber-950 text-amber-400 border border-amber-800/50";
         
-        // Imóvel de exemplo caso esteja testando isolado
         listaImoveisGlobal = [{
           bairro: 'Gravatá',
           titulo: 'Imóvel em Saquarema',

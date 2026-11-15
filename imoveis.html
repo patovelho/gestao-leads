@@ -469,5 +469,106 @@
 
     window.onload = initSupabase;
   </script>
+
+  // ------------------------------------------------- NOVO ---------------------
+<script>
+  async function importarNovosDoXML(event) {
+    const arquivo = event.target.files[0];
+    if (!arquivo) return;
+
+    const leitor = new FileReader();
+    leitor.onload = async function(e) {
+      try {
+        const textoXml = e.target.result;
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(textoXml, "text/xml");
+        const listings = xmlDoc.getElementsByTagName("Listing");
+
+        if (listings.length === 0) {
+          alert("⚠️ Nenhum imóvel encontrado neste arquivo XML.");
+          return;
+        }
+
+        // Busca os links já cadastrados no Supabase para manter os existentes intactos
+        const { data: existentes, error: errBusca } = await supabaseClient
+          .from('imoveis')
+          .select('link');
+
+        if (errBusca) throw errBusca;
+
+        const linksExistentes = new Set((existentes || []).map(item => (item.link || '').trim()));
+
+        let adicionados = 0;
+        let ignorados = 0;
+
+        for (let i = 0; i < listings.length; i++) {
+          const item = listings[i];
+          const link = (item.getElementsByTagName("DetailViewUrl")[0]?.textContent || "").trim();
+
+          // Pula imóveis que já estão cadastrados na carteira
+          if (link && linksExistentes.has(link)) {
+            ignorados++;
+            continue;
+          }
+
+          const titulo = (item.getElementsByTagName("Title")[0]?.textContent || "Imóvel em Saquarema").trim();
+          const bairro = (item.getElementsByTagName("Neighborhood")[0]?.textContent || "Saquarema").trim();
+          
+          // Extrai rua e número do XML
+          const rua = (item.getElementsByTagName("Street")[0]?.textContent || "").trim();
+          const numero = (item.getElementsByTagName("StreetNumber")[0]?.textContent || "").trim();
+          const enderecoCompleto = rua ? `${rua}${numero ? ', ' + numero : ''}` : '';
+
+          const valorStr = item.getElementsByTagName("ListPrice")[0]?.textContent || "0";
+          const descricao = (item.getElementsByTagName("Description")[0]?.textContent || "").toLowerCase();
+
+          // Identifica na descrição se aceita financiamento / RGI / Escritura
+          let docStatus = "Verificar";
+          if (
+            descricao.includes("aceita financiamento") ||
+            descricao.includes("financiamento") ||
+            descricao.includes("rgi") ||
+            descricao.includes("escritura")
+          ) {
+            docStatus = "RGI / Aceita Financiamento";
+          }
+
+          const valorNumerico = parseFloat(valorStr.replace(/[^\d.-]/g, '')) || 0;
+
+          // Insere apenas os imóveis novos no Supabase com os campos do sistema
+          const { error: errInsert } = await supabaseClient
+            .from('imoveis')
+            .insert({
+              titulo: titulo,
+              bairro: bairro,
+              endereco: enderecoCompleto,
+              valor_venda: valorNumerico,
+              link: link,
+              documentacao: docStatus,
+              status: 'Disponível'
+            });
+
+          if (!errInsert) {
+            adicionados++;
+            if (link) linksExistentes.add(link);
+          }
+        }
+
+        alert(`✅ Importação concluída!\n• ${adicionados} imóveis novos adicionados.\n• ${ignorados} imóveis já existentes mantidos.`);
+        if (adicionados > 0) location.reload();
+
+      } catch (erro) {
+        console.error("Erro ao importar XML:", erro);
+        alert("❌ Erro ao processar o arquivo XML.");
+      }
+    };
+
+    leitor.readAsText(arquivo);
+  }
+</script>
+
+  
+
+  
 </body>
 </html>

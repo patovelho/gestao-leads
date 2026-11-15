@@ -399,4 +399,57 @@
     }
   </script>
 </body>
+  <!-- MODAL DE AJUDA / GUIA DE TAXAS -->
+  <div id="modalAjuda" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-base font-bold text-amber-400 flex items-center gap-2">
+          📖 Guia Prático: Qual Modalidade/Taxa Escolher?
+        </h3>
+        <button onclick="fecharModalAjuda()" class="text-slate-400 hover:text-slate-200 text-lg font-bold">✕</button>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <strong class="text-emerald-400 text-sm block mb-1">🔹 SBPE / Mercado (~9,99% a.a.)</strong>
+          <p>• <strong>Padrão para imóveis acima de R$ 350 mil</strong> ou quando o cliente já possui outro imóvel no nome.</p>
+          <p class="mt-1">• Use sempre que o imóvel passar do teto do Minha Casa Minha Vida (ex: imóveis mais altos como no Gravatá).</p>
+        </div>
+
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <strong class="text-emerald-400 text-sm block mb-1">🔹 MCMV Faixa 3 (~8,16% a.a.)</strong>
+          <p>• Para imóveis de até <strong>R$ 350.000</strong> (primeiro imóvel do comprador).</p>
+          <p class="mt-1">• Renda familiar bruta entre R$ 4.400 e R$ 8.000.</p>
+        </div>
+
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <strong class="text-emerald-400 text-sm block mb-1">🔹 MCMV Faixa 2 (~7,00% a.a.)</strong>
+          <p>• Para imóveis econômicos/populares (faixa de R$ 200 mil a R$ 264 mil).</p>
+          <p class="mt-1">• Renda familiar bruta até R$ 4.400 (primeiro imóvel).</p>
+        </div>
+
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+          <strong class="text-emerald-400 text-sm block mb-1">🔹 Outros Bancos (~10,99% a.a.)</strong>
+          <p>• Itaú, Bradesco, Santander, Banco do Brasil.</p>
+          <p class="mt-1">• Use se o cliente faz questão de financiar no banco onde já é correntista ou para alta renda.</p>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-800 text-right">
+        <button onclick="fecharModalAjuda()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-xs font-medium transition">
+          Entendi, voltar à simulação
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Funções para abrir e fechar o guia de ajuda
+    function abrirModalAjuda() {
+      document.getElementById('modalAjuda').classList.remove('hidden');
+    }
+    function fecharModalAjuda() {
+      document.getElementById('modalAjuda').classList.add('hidden');
+    }
+  </script>
 </html>

@@ -6,11 +6,7 @@
   <title>Carteira de Imóveis - André Reis Imóveis</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<label class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs cursor-pointer transition inline-flex items-center gap-2 shadow-lg">
-  📥 Importar Novos do XML
-  <input type="file" id="inputXmlImoveis" accept=".xml" onchange="importarNovosDoXML(event)" class="hidden">
-</label>
-  
+ 
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen pb-10">
 
@@ -28,6 +24,20 @@
       <button onclick="toggleModal('configModal')" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-600 flex items-center gap-1">
         ⚙️ Config
       </button>
+
+      <!-- Canto direito do cabeçalho (onde fica o botão Config) -->
+<div class="flex items-center gap-2.5">
+  <label class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold px-3.5 py-2 rounded-xl text-xs cursor-pointer transition inline-flex items-center gap-1.5 shadow-lg">
+    📥 Importar XML
+    <input type="file" id="inputXmlImoveis" accept=".xml" onchange="importarNovosDoXML(event)" class="hidden">
+  </label>
+
+  <!-- Seu botão Config original continua logo aqui ao lado -->
+  <button onclick="abrirConfig()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3.5 py-2 rounded-xl text-xs font-medium transition flex items-center gap-1.5 border border-slate-700">
+    ⚙️ Config
+  </button>
+</div>
+      
     </div>
   </header>
 

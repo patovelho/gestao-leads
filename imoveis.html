@@ -467,10 +467,15 @@
 
     window.onload = initSupabase;
   </script>
-  <script>
+ <script>
   async function importarNovosDoXML(event) {
     const arquivo = event.target.files[0];
-    if (!arquivo) return;
+    if (!arquivo) {
+      alert("⚠️ Nenhum arquivo foi selecionado.");
+      return;
+    }
+
+    alert("📂 Arquivo selecionado: " + arquivo.name + ". Lendo conteúdo...");
 
     const leitor = new FileReader();
     leitor.onload = async function(e) {
@@ -480,19 +485,25 @@
         const xmlDoc = parser.parseFromString(textoXml, "text/xml");
         const listings = xmlDoc.getElementsByTagName("Listing");
 
+        alert("🔍 Total de tags <Listing> encontradas no XML: " + listings.length);
+
         if (listings.length === 0) {
-          alert("⚠️ Nenhum imóvel encontrado neste arquivo XML.");
+          alert("⚠️ Atenção: O arquivo foi lido, mas nenhuma tag <Listing> foi encontrada. Verifique se o XML é do padrão correto.");
           return;
         }
 
-        // Busca os links já cadastrados no Supabase para manter os existentes intactos
+        // Busca os links já cadastrados no Supabase
         const { data: existentes, error: errBusca } = await supabaseClient
           .from('imoveis')
           .select('link');
 
-        if (errBusca) throw errBusca;
+        if (errBusca) {
+          alert("❌ Erro ao conectar no Supabase para buscar existentes: " + JSON.stringify(errBusca));
+          return;
+        }
 
         const linksExistentes = new Set((existentes || []).map(item => (item.link || '').trim()));
+        alert("📊 Imóveis já cadastrados no banco: " + linksExistentes.size);
 
         let adicionados = 0;
         let ignorados = 0;
@@ -501,7 +512,6 @@
           const item = listings[i];
           const link = (item.getElementsByTagName("DetailViewUrl")[0]?.textContent || "").trim();
 
-          // Pula imóveis que já estão cadastrados na carteira
           if (link && linksExistentes.has(link)) {
             ignorados++;
             continue;
@@ -510,7 +520,6 @@
           const titulo = (item.getElementsByTagName("Title")[0]?.textContent || "Imóvel em Saquarema").trim();
           const bairro = (item.getElementsByTagName("Neighborhood")[0]?.textContent || "Saquarema").trim();
           
-          // Extrai rua e número do XML
           const rua = (item.getElementsByTagName("Street")[0]?.textContent || "").trim();
           const numero = (item.getElementsByTagName("StreetNumber")[0]?.textContent || "").trim();
           const enderecoCompleto = rua ? `${rua}${numero ? ', ' + numero : ''}` : '';
@@ -518,7 +527,6 @@
           const valorStr = item.getElementsByTagName("ListPrice")[0]?.textContent || "0";
           const descricao = (item.getElementsByTagName("Description")[0]?.textContent || "").toLowerCase();
 
-          // Identifica na descrição se aceita financiamento / RGI / Escritura
           let docStatus = "Verificar";
           if (
             descricao.includes("aceita financiamento") ||
@@ -531,7 +539,7 @@
 
           const valorNumerico = parseFloat(valorStr.replace(/[^\d.-]/g, '')) || 0;
 
-          // Insere apenas os imóveis novos no Supabase com os campos do sistema
+          // Insere no Supabase e avisa se der erro
           const { error: errInsert } = await supabaseClient
             .from('imoveis')
             .insert({
@@ -544,27 +552,27 @@
               status: 'Disponível'
             });
 
-         if (errInsert) {
-            alert("❌ Erro do Supabase ao salvar imóvel:\n" + JSON.stringify(errInsert));
+          if (errInsert) {
+            alert("❌ Erro do Supabase ao inserir o imóvel (" + titulo + "):\n" + JSON.stringify(errInsert));
             return;
           } else {
             adicionados++;
             if (link) linksExistentes.add(link);
           }
+        }
 
-        alert(`✅ Importação concluída!\n• ${adicionados} imóveis novos adicionados.\n• ${ignorados} imóveis já existentes mantidos.`);
+        alert(`🎉 Processo Finalizado!\n• Adicionados novos: ${adicionados}\n• Já existiam (ignorados): ${ignorados}`);
         if (adicionados > 0) location.reload();
 
       } catch (erro) {
-        console.error("Erro ao importar XML:", erro);
-        alert("❌ Erro ao processar o arquivo XML.");
+        console.error("Erro geral:", erro);
+        alert("❌ Erro crítico no script: " + erro.message);
       }
     };
 
     leitor.readAsText(arquivo);
   }
 </script>
-
   
 
   

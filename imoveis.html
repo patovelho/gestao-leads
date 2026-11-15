@@ -543,7 +543,7 @@
           const { error: errInsert } = await supabaseClient
             .from('imoveis')
             .insert({
-              titulo: titulo,
+              titulo: bairro + " - " + enderecoCompleto, // <- Satisfaz o Supabase caso ele ainda espere a coluna
               bairro: bairro,
               endereco: enderecoCompleto,
               valor_venda: valorNumerico,

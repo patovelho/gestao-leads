@@ -333,11 +333,11 @@
         card.className = 'bg-slate-800 border border-slate-700/80 rounded-xl p-4 space-y-3 shadow-md flex flex-col justify-between';
 
         const cleanPhone = normalizePhone(lead.whatsapp);
-        const mensagemWhats = encodeURIComponent(`Olá! Tudo bem?
-        Estou passando para confirmar nossa visita ao imóvel, conforme combinamos.
-        Podemos manter o horário agendado?
-        Fico no aguardo da sua confirmação.
-        André Reis Imóveis | CRECI 86401`);
+        const mensagemWhats = encodeURIComponent(`Olá! Tudo bem?\n
+Estou passando para confirmar nossa visita ao imóvel, conforme combinamos.
+Podemos manter o horário agendado?
+Fico no aguardo da sua confirmação.\n
+André Reis Imóveis | CRECI 86401`);
 
         const waUrl = cleanPhone ? `https://wa.me/55${cleanPhone}?text=${mensagemWhats}` : '#';
         const email = extractEmail(lead.notas_follow_up);

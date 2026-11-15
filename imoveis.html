@@ -6,6 +6,11 @@
   <title>Carteira de Imóveis - André Reis Imóveis</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<label class="bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold px-4 py-2 rounded-xl text-xs cursor-pointer transition inline-flex items-center gap-2 shadow-lg">
+  📥 Importar Novos do XML
+  <input type="file" id="inputXmlImoveis" accept=".xml" onchange="importarNovosDoXML(event)" class="hidden">
+</label>
+  
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen pb-10">
 

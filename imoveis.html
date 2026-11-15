@@ -510,6 +510,16 @@
 
         for (let i = 0; i < listings.length; i++) {
           const item = listings[i];
+
+          // Filtro: Aceita APENAS imóveis do tipo Casa e na cidade de Saquarema
+          const tipoImovel = (item.getElementsByTagName("PropertyType")[0]?.textContent || "").toLowerCase();
+          const cidadeImovel = (item.getElementsByTagName("City")[0]?.textContent || "").toLowerCase();
+
+          if (!tipoImovel.includes("casa") || !cidadeImovel.includes("saquarema")) {
+            ignorados++;
+            continue; // Pula este imóvel e vai para o próximo
+          }
+
           const link = (item.getElementsByTagName("DetailViewUrl")[0]?.textContent || "").trim();
 
           if (link && linksExistentes.has(link)) {
@@ -517,7 +527,6 @@
             continue;
           }
 
-          const titulo = (item.getElementsByTagName("Title")[0]?.textContent || "Imóvel em Saquarema").trim();
           const bairro = (item.getElementsByTagName("Neighborhood")[0]?.textContent || "Saquarema").trim();
           
           const rua = (item.getElementsByTagName("Street")[0]?.textContent || "").trim();
@@ -543,7 +552,7 @@
           const { error: errInsert } = await supabaseClient
             .from('imoveis')
             .insert({
-              titulo: bairro + " - " + enderecoCompleto, // <- Satisfaz o Supabase caso ele ainda espere a coluna
+              titulo: bairro + " - " + enderecoCompleto,
               bairro: bairro,
               endereco: enderecoCompleto,
               valor_venda: valorNumerico,
@@ -553,7 +562,7 @@
             });
 
           if (errInsert) {
-            alert("❌ Erro do Supabase ao inserir o imóvel (" + titulo + "):\n" + JSON.stringify(errInsert));
+            alert("❌ Erro do Supabase ao inserir o imóvel (" + bairro + "):\n" + JSON.stringify(errInsert));
             return;
           } else {
             adicionados++;
@@ -561,7 +570,7 @@
           }
         }
 
-        alert(`🎉 Processo Finalizado!\n• Adicionados novos: ${adicionados}\n• Já existiam (ignorados): ${ignorados}`);
+        alert(`🎉 Processo Finalizado!\n• Casas em Saquarema adicionadas: ${adicionados}\n• Ignoradas (outros tipos/cidades ou já existentes): ${ignorados}`);
         if (adicionados > 0) location.reload();
 
       } catch (erro) {
@@ -572,8 +581,7 @@
 
     leitor.readAsText(arquivo);
   }
-</script>
-  
+</script>  
 
   
 </body>

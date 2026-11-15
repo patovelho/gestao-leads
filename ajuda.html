@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Central de Ajuda e Manuais - André Reis Imóveis</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0b0f19; color: #f3f4f6; font-family: system-ui, -apple-system, sans-serif; }
+  </style>
+</head>
+<body class="min-h-screen p-6 md:p-10 flex flex-col justify-between">
+
+  <!-- TOPO / CABEÇALHO -->
+  <header class="max-w-4xl mx-auto w-full flex flex-col md:flex-row items-center justify-between pb-6 mb-8 border-b border-slate-800 gap-4">
+    <div class="flex items-center gap-3">
+      <a href="index.html" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2">
+        ← Hub
+      </a>
+      <div>
+        <h1 class="text-xl md:text-2xl font-bold text-slate-100 flex items-center gap-2">
+          📖 Central de Ajuda e Manuais
+        </h1>
+        <p class="text-xs text-slate-400 mt-0.5">Orientações rápidas para operação do sistema e rotina de corretagem</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <main class="max-w-4xl mx-auto w-full space-y-6 mb-12">
+
+    <!-- SEÇÃO 1: Simulador de Financiamento -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+      <h2 class="text-base font-bold text-amber-400 flex items-center gap-2">
+        🏦 1. Guia do Simulador de Financiamento
+      </h2>
+      
+      <div class="space-y-3 text-xs text-slate-300 leading-relaxed">
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+          <strong class="text-emerald-400 text-sm block mb-1">🔹 Como escolher a Modalidade / Taxa Base?</strong>
+          <ul class="list-disc pl-4 space-y-1 mt-1 text-slate-300">
+            <li><strong>SBPE / Mercado (~9,99% a.a.):</strong> Padrão para imóveis acima de R$ 350 mil ou quando o cliente já possui outro imóvel em seu nome.</li>
+            <li><strong>MCMV Faixa 3 (~8,16% a.a.):</strong> Para imóveis de até R$ 350.000 (primeiro imóvel do comprador) com renda familiar entre R$ 4.400 e R$ 8.000.</li>
+            <li><strong>MCMV Faixa 2 (~7,00% a.a.):</strong> Para imóveis econômicos/populares (R$ 200 mil a R$ 264 mil) com renda familiar até R$ 4.400.</li>
+            <li><strong>Outros Bancos (~10,99% a.a.):</strong> Itaú, Bradesco, Santander (para clientes que exigem banco particular ou correntista).</li>
+          </ul>
+        </div>
+
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+          <strong class="text-cyan-400 text-sm block mb-1">🔹 Sobre a Reserva de Documentação (~4,5%)</strong>
+          <p>O percentual padrão engloba o pacote completo para transferência e financiamento: <strong>2% de ITBI</strong> (prefeitura de Saquarema) + <strong>~2,5% de Cartório e taxas de registro no RGI / Banco</strong>. Garante que o cliente não seja pego de surpresa no dia da assinatura.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- SEÇÃO 2: Match de Atendimento -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+      <h2 class="text-base font-bold text-cyan-400 flex items-center gap-2">
+        🎯 2. Dicas do Match de Atendimento
+      </h2>
+      <div class="space-y-2 text-xs text-slate-300 leading-relaxed bg-slate-950 p-4 rounded-xl border border-slate-800">
+        <p>• <strong>Seleção de Opções:</strong> Prefira enviar de 1 a 3 opções estratégicas por vez para não sobrecarregar o lead no WhatsApp.</p>
+        <p>• <strong>Links Automáticos:</strong> O sistema prioriza o envio direto das fotos e detalhes do seu site (cadastrados no painel de imóveis) e usa o mapa limpo apenas como plano B caso o link esteja em branco.</p>
+        <p>• <strong>Selos de Documentación:</strong> Verde indica RGI / Escritura Definitiva (apto para financiamento); Âmbar indica Contrato de Compra e Venda.</p>
+      </div>
+    </div>
+
+    <!-- SEÇÃO 3: Boas Práticas na Carteira -->
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+      <h2 class="text-base font-bold text-emerald-400 flex items-center gap-2">
+        🏡 3. Boas Práticas na Carteira de Imóveis
+      </h2>
+      <div class="space-y-2 text-xs text-slate-300 leading-relaxed bg-slate-950 p-4 rounded-xl border border-slate-800">
+        <p>• Mantenha sempre o status atualizado (*Disponível*, *Reservado* ou *Vendido*). O sistema filtra automaticamente os disponíveis para o Match e para o Financiamento.</p>
+        <p>• Certifique-se de preencher a coluna de valor de venda numérica e o link do anúncio do site para agilizar os disparos comerciais.</p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- RODAPÉ -->
+  <footer class="max-w-4xl mx-auto w-full pt-6 border-t border-slate-800 text-center text-xs text-slate-500">
+    André Reis Imóveis • CRECI/RJ 86401 • Central de Ajuda do Sistema
+  </footer>
+
+</body>
+</html>

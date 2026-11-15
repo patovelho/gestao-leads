@@ -546,11 +546,13 @@
               status: 'Disponível'
             });
 
-          if (!errInsert) {
+         if (errInsert) {
+            alert("❌ Erro do Supabase ao salvar imóvel:\n" + JSON.stringify(errInsert));
+            return;
+          } else {
             adicionados++;
             if (link) linksExistentes.add(link);
           }
-        }
 
         alert(`✅ Importação concluída!\n• ${adicionados} imóveis novos adicionados.\n• ${ignorados} imóveis já existentes mantidos.`);
         if (adicionados > 0) location.reload();

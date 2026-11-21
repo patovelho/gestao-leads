@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Central de Inteligência 2030 · André Reis Imóveis</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface-2: #273449;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-dark: #0284c7;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: var(--bg); color: var(--text); line-height: 1.5; padding: 20px; }
+    .container { max-width: 1240px; margin: 0 auto; }
+
+    /* Header */
+    header {
+      display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+      gap: 16px; padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 24px;
+    }
+    .brand h1 { font-size: 1.45rem; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+    .brand p { font-size: 0.85rem; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; margin-top: 2px; }
+    .badge-v1 { background: rgba(56, 189, 248, 0.15); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.35); font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; }
+
+    .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn {
+      background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+      padding: 9px 14px; border-radius: 8px; font-size: 0.88rem; font-weight: 600;
+      cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn:hover { border-color: var(--accent); }
+    .btn-primary { background: var(--accent-dark); border-color: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #0369a1; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; }
+    .tab-btn {
+      background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+      padding: 10px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9rem;
+    }
+    .tab-btn.active { background: var(--accent-dark); color: #fff; border-color: var(--accent); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* KPI Grid */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .kpi-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px;
+    }
+    .kpi-label { font-size: 0.82rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; }
+    .kpi-value { font-size: 1.85rem; font-weight: 700; margin: 8px 0 4px; color: var(--text); }
+    .kpi-sub { font-size: 0.82rem; color: var(--accent); }
+
+    /* Two columns */
+    .grid-2 { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 20px; margin-bottom: 24px; }
+    @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px;
+    }
+    .card h2 { font-size: 1.05rem; margin-bottom: 4px; }
+    .card-desc { font-size: 0.84rem; color: var(--muted); margin-bottom: 16px; }
+
+    /* Price bars */
+    .faixa-item { margin-bottom: 14px; }
+    .faixa-header { display: flex; justify-content: space-between; font-size: 0.88rem; margin-bottom: 5px; }
+    .bar-bg { background: var(--bg); height: 10px; border-radius: 999px; overflow: hidden; border: 1px solid var(--border); }
+    .bar-fill { background: var(--accent); height: 100%; width: 0%; transition: width 0.4s ease; }
+
+    /* Recommendations */
+    .rec-item {
+      background: var(--surface-2); border-left: 4px solid var(--warning);
+      padding: 12px 14px; border-radius: 8px; margin-bottom: 12px;
+    }
+    .rec-item.alta { border-left-color: var(--danger); }
+    .rec-title { font-weight: 700; font-size: 0.92rem; margin-bottom: 4px; }
+    .rec-body { font-size: 0.84rem; color: var(--muted); }
+
+    /* Table */
+    .toolbar { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .toolbar input, .toolbar select {
+      background: var(--bg); color: var(--text); border: 1px solid var(--border);
+      padding: 9px 12px; border-radius: 8px; font-size: 0.88rem;
+    }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: uppercase; }
+    tr:hover { background: rgba(255,255,255,0.02); }
+
+    .pill { padding: 3px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+    .pill-quente { background: rgba(239,68,68,0.2); color: #fca5a5; }
+    .pill-morno { background: rgba(245,158,11,0.2); color: #fcd34d; }
+    .pill-frio { background: rgba(148,163,184,0.2); color: #cbd5e1; }
+    .pill-idi-alta { background: rgba(239,68,68,0.2); color: #fca5a5; }
+    .pill-idi-mod { background: rgba(56,189,248,0.2); color: #7dd3fc; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(2, 6, 23, 0.78);
+      display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      max-width: 720px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 22px;
+    }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px; }
+    .field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
+    .field input, .field select, .field textarea {
+      width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border);
+      padding: 8px 10px; border-radius: 8px; font-size: 0.88rem;
+    }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+    .status-banner {
+      background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #fde68a; padding: 10px 14px; border-radius: 8px; font-size: 0.84rem; margin-bottom: 18px;
+    }
+    footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <h1>Central de Inteligência <span class="badge-v1">Projeto v1</span></h1>
+        <p>André Reis Imóveis · Saquarema – RJ · Módulo 01: Demanda</p>
+      </div>
+      <div class="header-actions">
+        <a href="index.html" class="btn">← Voltar ao Hub</a>
+        <button class="btn btn-primary" onclick="abrirModalComprador()">+ Novo Comprador</button>
+      </div>
+    </header>
+
+    <div id="statusConexao" class="status-banner">
+      Conectando à camada isolada (tabelas <code>ii_*</code>)... Configure <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> no script para sincronizar em nuvem.
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="trocarAba('visao-geral', this)">1. Central de Comando</button>
+      <button class="tab-btn" onclick="trocarAba('radar-compradores', this)">2. Radar de Compradores</button>
+      <button class="tab-btn" onclick="trocarAba('mapa-bairros', this)">3. Demanda por Bairro (IDI)</button>
+    </div>
+
+    <!-- ABA 1: CENTRAL DE COMANDO -->
+    <section id="visao-geral" class="tab-panel active">
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Compradores ativos</div>
+          <div class="kpi-value" id="kpiAtivos">—</div>
+          <div class="kpi-sub">Demanda real deduplicada</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Demanda até R$ 350 mil</div>
+          <div class="kpi-value" id="kpiAte350">—</div>
+          <div class="kpi-sub">Faixa prioritária</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Bairros procurados</div>
+          <div class="kpi-value" id="kpiTopBairro">—</div>
+          <div class="kpi-sub" id="kpiBairrosSub">Distribuição em Saquarema</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Demanda sem oferta</div>
+          <div class="kpi-value" id="kpiSemOferta">—</div>
+          <div class="kpi-sub">Captação necessária</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>Demanda por faixa de preço</h2>
+          <p class="card-desc">Distribuição dos compradores ativos por orçamento máximo informado.</p>
+          <div id="containerFaixas"></div>
+        </div>
+
+        <div class="card">
+          <h2>Recomendações de captação</h2>
+          <p class="card-desc">Cruzamento automático entre perfil de procura e urgência de compra.</p>
+          <div id="containerRecomendacoes"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 2: RADAR DE COMPRADORES -->
+    <section id="radar-compradores" class="tab-panel">
+      <div class="card">
+        <h2>Radar de Compradores Ativos</h2>
+        <p class="card-desc">Base estruturada e deduplicada por telefone. Alterações de orçamento ou bairro preservam histórico.</p>
+        <div class="toolbar">
+          <input type="text" id="filtroTexto" placeholder="Buscar por nome ou telefone..." oninput="renderizarTabelaCompradores()" />
+          <select id="filtroBairro" onchange="renderizarTabelaCompradores()">
+            <option value="">Todos os bairros</option>
+          </select>
+          <select id="filtroTemp" onchange="renderizarTabelaCompradores()">
+            <option value="">Todas as temperaturas</option>
+            <option value="quente">Quente</option>
+            <option value="morno">Morno</option>
+            <option value="frio">Frio</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Comprador</th>
+                <th>Interesse</th>
+                <th>Bairro</th>
+                <th>Orçamento</th>
+                <th>Financ. / Entrada</th>
+                <th>Prazo</th>
+                <th>Temp. / Etapa</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyCompradores"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABA 3: DEMANDA POR BAIRRO (IDI) -->
+    <section id="mapa-bairros" class="tab-panel">
+      <div class="card">
+        <h2>Índice de Demanda Imobiliária (IDI) por Bairro</h2>
+        <p class="card-desc">Classificação baseada em compradores ativos, prazo imediato/30d e capacidade financeira informada.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Bairro (Saquarema)</th>
+                <th>Compradores Ativos</th>
+                <th>Quentes / Imediatos</th>
+                <th>Ticket Médio Máx.</th>
+                <th>Classificação IDI</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyBairros"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      André Reis Imóveis Ltda • CRECI/RJ 86.401 · Inteligência Imobiliária 2030 (Base Isolada)
+    </footer>
+  </div>
+
+  <!-- MODAL CADASTRO / EDIÇÃO -->
+  <div class="modal-backdrop" id="modalComprador">
+    <div class="modal">
+      <h2 id="modalTitulo">Cadastrar Comprador no Radar</h2>
+      <p class="card-desc">O telefone é normalizado automaticamente para evitar registros duplicados.</p>
+      <form id="formComprador" onsubmit="salvarComprador(event)">
+        <input type="hidden" id="compId" />
+        <div class="form-grid">
+          <div class="field">
+            <label>Nome *</label>
+            <input type="text" id="compNome" required />
+          </div>
+          <div class="field">
+            <label>Telefone (WhatsApp) *</label>
+            <input type="tel" id="compTelefone" placeholder="(22) 99999-9999" required />
+          </div>
+          <div class="field">
+            <label>Finalidade</label>
+            <select id="compFinalidade">
+              <option value="Moradia">Moradia</option>
+              <option value="Investimento">Investimento</option>
+              <option value="Temporada">Temporada</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Tipo de Imóvel</label>
+            <select id="compTipo">
+              <option value="Casa">Casa</option>
+              <option value="Apartamento">Apartamento</option>
+              <option value="Terreno">Terreno</option>
+              <option value="Comercial">Comercial</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Bairro Desejado</label>
+            <select id="compBairro"></select>
+          </div>
+          <div class="field">
+            <label>Quartos (mínimo)</label>
+            <input type="number" id="compQuartos" min="0" max="10" value="2" />
+          </div>
+          <div class="field">
+            <label>Valor Mínimo (R$)</label>
+            <input type="number" id="compValorMin" step="1000" value="180000" />
+          </div>
+          <div class="field">
+            <label>Valor Máximo (R$) *</label>
+            <input type="number" id="compValorMax" step="1000" value="320000" required />
+          </div>
+          <div class="field">
+            <label>Financiamento</label>
+            <select id="compFinanciamento">
+              <option value="Sim">Sim</option>
+              <option value="Não">Não (À vista)</option>
+              <option value="Indefinido">Indefinido</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Entrada Disponível (R$)</label>
+            <input type="number" id="compEntrada" step="1000" value="0" />
+          </div>
+          <div class="field">
+            <label>Prazo de Compra</label>
+            <select id="compPrazo">
+              <option value="Imediato">Imediato</option>
+              <option value="30 dias">30 dias</option>
+              <option value="90 dias" selected>90 dias</option>
+              <option value="Futuro">Futuro</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Temperatura</label>
+            <select id="compTemperatura">
+              <option value="quente">Quente</option>
+              <option value="morno" selected>Morno</option>
+              <option value="frio">Frio</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Etapa da Jornada (0 a 5)</label>
+            <select id="compEtapa">
+              <option value="0">0 - Primeiro contato</option>
+              <option value="1" selected>1 - Qualificação</option>
+              <option value="2">2 - Seleção de imóveis</option>
+              <option value="3">3 - Visitas agendadas</option>
+              <option value="4">4 - Proposta / Crédito</option>
+              <option value="5">5 - Fechamento</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Status Operacional</label>
+            <select id="compStatus">
+              <option value="ativo" selected>Ativo</option>
+              <option value="pausado">Pausado</option>
+              <option value="comprou">Comprou</option>
+              <option value="desistiu">Desistiu</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-top: 12px;">
+          <label>Próxima Ação Recomendada</label>
+          <input type="text" id="compProximaAcao" placeholder="Ex: Enviar 3 opções em Bacaxá até sexta-feira" />
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn" onclick="fecharModalComprador()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar no Radar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // CONFIGURAÇÃO SUPABASE (Use APENAS a chave pública anon aqui; nunca service_role)
+    // =========================================================================
+    const SUPABASE_URL = "https://tldylbaxzpbhifluutsb.supabase.co";      // Ex: "https://seuprojeto.supabase.co"
+    const SUPABASE_ANON_KEY = "sb_publishable_JlBJOpxz7Sjs2UsrIGnfFA_hB8kSBCZ"; // Ex: "eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+
+    const sb = (SUPABASE_URL && SUPABASE_ANON_KEY)
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
+
+    const BAIRROS_PADRAO = [
+      "Bacaxá", "Itaúna", "Porto Novo", "Porto da Roça", "Boqueirão",
+      "Barra Nova", "Jaconé", "Vilatur", "Jardim", "Areal", "Centro",
+      "Gravatá", "Bonsucesso", "Rio Seco", "Madressilva", "Retiro", "Leigos"
+    ];
+
+    let estado = {
+      bairros: BAIRROS_PADRAO.map((nome, idx) => ({ id: String(idx + 1), nome })),
+      compradores: []
+    };
+
+    function normalizarTelefone(tel) {
+      let nums = String(tel || "").replace(/\D/g, "");
+      if (nums.length === 10 || nums.length === 11) nums = "55" + nums;
+      return nums;
+    }
+
+    function formatarMoeda(val) {
+      return Number(val || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+    }
+
+    function trocarAba(id, btn) {
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+      btn.classList.add("active");
+    }
+
+    function popularSelectsBairros() {
+      const selFiltro = document.getElementById("filtroBairro");
+      const selForm = document.getElementById("compBairro");
+      selFiltro.innerHTML = '<option value="">Todos os bairros</option>';
+      selForm.innerHTML = "";
+      estado.bairros.forEach(b => {
+        selFiltro.innerHTML += `<option value="${b.nome}">${b.nome}</option>`;
+        selForm.innerHTML += `<option value="${b.id}">${b.nome}</option>`;
+      });
+    }
+
+    async function carregarDados() {
+      const banner = document.getElementById("statusConexao");
+      if (!sb) {
+        const salvo = localStorage.getItem("ii_2030_sandbox");
+        estado.compradores = salvo ? JSON.parse(salvo) : [];
+        banner.innerHTML = "Modo Sandbox Local ativo (zero impacto no CRM). Insira <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> no arquivo para conectar às tabelas <code>ii_*</code>.";
+        atualizarInterface();
+        return;
+      }
+
+      try {
+        const { data: bairrosDb, error: errB } = await sb.from("ii_bairros").select("id, nome").eq("ativo", true).order("nome");
+        if (!errB && bairrosDb?.length) estado.bairros = bairrosDb;
+
+        const { data: compsDb, error: errC } = await sb
+          .from("ii_compradores")
+          .select("*, ii_preferencias(*, ii_bairros(nome))")
+          .order("criado_em", { ascending: false });
+
+        if (errC) throw errC;
+
+        estado.compradores = (compsDb || []).map(c => {
+          const pref = Array.isArray(c.ii_preferencias) ? c.ii_preferencias[0] : c.ii_preferencias;
+          return {
+            id: c.id,
+            nome: c.nome,
+            telefone: c.telefone_raw,
+            telefone_normalizado: c.telefone_normalizado,
+            status: c.status_operacional,
+            temperatura: c.temperatura,
+            etapa: c.etapa_jornada,
+            proxima_acao: c.proxima_acao || "",
+            finalidade: pref?.finalidade || "Moradia",
+            tipo_imovel: pref?.tipo_imovel || "Casa",
+            bairro_id: pref?.bairro_id || "",
+            bairro_nome: pref?.ii_bairros?.nome || "Não definido",
+            quartos: pref?.quartos || 2,
+            valor_min: Number(pref?.valor_min || 0),
+            valor_max: Number(pref?.valor_max || 0),
+            financiamento: pref?.financiamento || "Indefinido",
+            entrada: Number(pref?.entrada_disponivel || 0),
+            prazo: pref?.prazo_compra || "90 dias"
+          };
+        });
+
+        banner.style.background = "rgba(34, 197, 94, 0.12)";
+        banner.style.borderColor = "rgba(34, 197, 94, 0.35)";
+        banner.style.color = "#bbf7d0";
+        banner.textContent = "Conectado ao Supabase · Tabelas isoladas ii_* ativas.";
+      } catch (e) {
+        banner.textContent = "Erro ao ler Supabase: " + e.message;
+      }
+
+      popularSelectsBairros();
+      atualizarInterface();
+    }
+
+    function atualizarInterface() {
+      const ativos = estado.compradores.filter(c => c.status === "ativo");
+      document.getElementById("kpiAtivos").textContent = ativos.length;
+
+      const ate350 = ativos.filter(c => c.valor_max > 0 && c.valor_max <= 350000);
+      const pct350 = ativos.length ? Math.round((ate350.length / ativos.length) * 100) : 0;
+      document.getElementById("kpiAte350").textContent = ativos.length ? `${ate350.length} (${pct350}%)` : "0";
+
+      // Contagem por bairro
+      const porBairro = {};
+      ativos.forEach(c => {
+        porBairro[c.bairro_nome] = (porBairro[c.bairro_nome] || 0) + 1;
+      });
+      const rankingBairros = Object.entries(porBairro).sort((a, b) => b[1] - a[1]);
+      document.getElementById("kpiTopBairro").textContent = rankingBairros.length ? rankingBairros[0][0] : "—";
+      document.getElementById("kpiBairrosSub").textContent = rankingBairros.length
+        ? `${rankingBairros[0][1]} comprador(es) ativo(s) no topo`
+        : "Aguardando cadastros";
+
+      // Faixas de preço
+      const faixas = [
+        { label: "Até R$ 200 mil", min: 0, max: 200000 },
+        { label: "R$ 200 a 250 mil", min: 200001, max: 250000 },
+        { label: "R$ 250 a 300 mil", min: 250001, max: 300000 },
+        { label: "R$ 300 a 350 mil", min: 300001, max: 350000 },
+        { label: "Acima de R$ 350 mil", min: 350001, max: Infinity }
+      ];
+
+      const containerFaixas = document.getElementById("containerFaixas");
+      containerFaixas.innerHTML = "";
+      faixas.forEach(f => {
+        const qtd = ativos.filter(c => c.valor_max >= f.min && c.valor_max <= f.max).length;
+        const pct = ativos.length ? Math.round((qtd / ativos.length) * 100) : 0;
+        containerFaixas.innerHTML += `
+          <div class="faixa-item">
+            <div class="faixa-header">
+              <span>${f.label}</span>
+              <strong>${ativos.length ? `${qtd} (${pct}%)` : "Aguardando dados"}</strong>
+            </div>
+            <div class="bar-bg"><div class="bar-fill" style="width: ${pct}%"></div></div>
+          </div>
+        `;
+      });
+
+      // Recomendações automáticas de captação
+      const recDiv = document.getElementById("containerRecomendacoes");
+      const grupos = {};
+      ativos.forEach(c => {
+        const chave = `${c.tipo_imovel} · ${c.bairro_nome}`;
+        if (!grupos[chave]) grupos[chave] = { qtd: 0, maxList: [], quentes: 0 };
+        grupos[chave].qtd++;
+        grupos[chave].maxList.push(c.valor_max);
+        if (c.temperatura === "quente" || c.prazo === "Imediato") grupos[chave].quentes++;
+      });
+
+      const prioridades = Object.entries(grupos).sort((a, b) => b[1].qtd - a[1].qtd).slice(0, 4);
+      document.getElementById("kpiSemOferta").textContent = prioridades.length || "0";
+
+      if (!prioridades.length) {
+        recDiv.innerHTML = `<div class="rec-item"><div class="rec-title">Aguardando dados iniciais</div><div class="rec-body">Cadastre ou importe compradores ativos para gerar alertas prioritários de captação em Saquarema.</div></div>`;
+      } else {
+        recDiv.innerHTML = prioridades.map(([chave, info]) => {
+          const media = info.maxList.reduce((a, b) => a + b, 0) / info.maxList.length;
+          return `
+            <div class="rec-item ${info.quentes > 0 ? 'alta' : ''}">
+              <div class="rec-title">Captar: ${chave}</div>
+              <div class="rec-body">${info.qtd} comprador(es) ativo(s) (${info.quentes} urgente/quente) · Orçamento médio até ${formatarMoeda(media)}.</div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      renderizarTabelaCompradores();
+      renderizarTabelaBairros(ativos);
+    }
+
+    function renderizarTabelaCompradores() {
+      const txt = document.getElementById("filtroTexto").value.toLowerCase();
+      const bairro = document.getElementById("filtroBairro").value;
+      const temp = document.getElementById("filtroTemp").value;
+
+      const filtrados = estado.compradores.filter(c => {
+        if (c.status !== "ativo") return false;
+        if (txt && !c.nome.toLowerCase().includes(txt) && !c.telefone.includes(txt)) return false;
+        if (bairro && c.bairro_nome !== bairro) return false;
+        if (temp && c.temperatura !== temp) return false;
+        return true;
+      });
+
+      const tbody = document.getElementById("tbodyCompradores");
+      if (!filtrados.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="color: var(--muted); text-align:center;">Nenhum comprador ativo encontrado para os filtros selecionados.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtrados.map(c => `
+        <tr>
+          <td><strong>${c.nome}</strong><br><small style="color:var(--muted)">${c.telefone}</small></td>
+          <td>${c.tipo_imovel} (${c.quartos}+ qts)<br><small style="color:var(--muted)">${c.finalidade}</small></td>
+          <td>${c.bairro_nome}</td>
+          <td>${formatarMoeda(c.valor_min)} a <strong>${formatarMoeda(c.valor_max)}</strong></td>
+          <td>Financ.: ${c.financiamento}<br><small style="color:var(--muted)">Entrada: ${formatarMoeda(c.entrada)}</small></td>
+          <td>${c.prazo}</td>
+          <td><span class="pill pill-${c.temperatura}">${c.temperatura.toUpperCase()}</span> · Etapa ${c.etapa}/5</td>
+          <td>
+            <button class="btn" style="padding:5px 9px; font-size:0.78rem;" onclick="editarComprador('${c.id}')">Editar</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function renderizarTabelaBairros(ativos) {
+      const tbody = document.getElementById("tbodyBairros");
+      tbody.innerHTML = estado.bairros.map(b => {
+        const lista = ativos.filter(c => c.bairro_nome === b.nome);
+        const quentes = lista.filter(c => c.temperatura === "quente" || c.prazo === "Imediato").length;
+        const ticket = lista.length ? lista.reduce((acc, c) => acc + c.valor_max, 0) / lista.length : 0;
+
+        let idi = "Indefinida";
+        let classe = "";
+        if (lista.length >= 5 || quentes >= 3) { idi = "Muito alta"; classe = "pill-idi-alta"; }
+        else if (lista.length >= 3) { idi = "Alta"; classe = "pill-idi-alta"; }
+        else if (lista.length >= 1) { idi = "Moderada"; classe = "pill-idi-mod"; }
+
+        return `
+          <tr>
+            <td><strong>${b.nome}</strong></td>
+            <td>${lista.length}</td>
+            <td>${quentes}</td>
+            <td>${lista.length ? formatarMoeda(ticket) : "—"}</td>
+            <td><span class="pill ${classe}">${idi}</span></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function abrirModalComprador() {
+      document.getElementById("formComprador").reset();
+      document.getElementById("compId").value = "";
+      document.getElementById("modalTitulo").textContent = "Cadastrar Comprador no Radar";
+      document.getElementById("modalComprador").classList.add("open");
+    }
+
+    function fecharModalComprador() {
+      document.getElementById("modalComprador").classList.remove("open");
+    }
+
+    function editarComprador(id) {
+      const c = estado.compradores.find(item => item.id === id);
+      if (!c) return;
+      document.getElementById("compId").value = c.id;
+      document.getElementById("compNome").value = c.nome;
+      document.getElementById("compTelefone").value = c.telefone;
+      document.getElementById("compFinalidade").value = c.finalidade;
+      document.getElementById("compTipo").value = c.tipo_imovel;
+      document.getElementById("compBairro").value = c.bairro_id;
+      document.getElementById("compQuartos").value = c.quartos;
+      document.getElementById("compValorMin").value = c.valor_min;
+      document.getElementById("compValorMax").value = c.valor_max;
+      document.getElementById("compFinanciamento").value = c.financiamento;
+      document.getElementById("compEntrada").value = c.entrada;
+      document.getElementById("compPrazo").value = c.prazo;
+      document.getElementById("compTemperatura").value = c.temperatura;
+      document.getElementById("compEtapa").value = c.etapa;
+      document.getElementById("compStatus").value = c.status;
+      document.getElementById("compProximaAcao").value = c.proxima_acao;
+      document.getElementById("modalTitulo").textContent = "Editar Perfil do Comprador";
+      document.getElementById("modalComprador").classList.add("open");
+    }
+
+    async function salvarComprador(e) {
+      e.preventDefault();
+      const id = document.getElementById("compId").value;
+      const telRaw = document.getElementById("compTelefone").value;
+      const telNorm = normalizarTelefone(telRaw);
+      const bairroId = document.getElementById("compBairro").value;
+      const bairroObj = estado.bairros.find(b => String(b.id) === String(bairroId));
+
+      const registro = {
+        id: id || crypto.randomUUID(),
+        nome: document.getElementById("compNome").value.trim(),
+        telefone: telRaw.trim(),
+        telefone_normalizado: telNorm,
+        finalidade: document.getElementById("compFinalidade").value,
+        tipo_imovel: document.getElementById("compTipo").value,
+        bairro_id: bairroId,
+        bairro_nome: bairroObj ? bairroObj.nome : "Bacaxá",
+        quartos: Number(document.getElementById("compQuartos").value || 2),
+        valor_min: Number(document.getElementById("compValorMin").value || 0),
+        valor_max: Number(document.getElementById("compValorMax").value || 0),
+        financiamento: document.getElementById("compFinanciamento").value,
+        entrada: Number(document.getElementById("compEntrada").value || 0),
+        prazo: document.getElementById("compPrazo").value,
+        temperatura: document.getElementById("compTemperatura").value,
+        etapa: Number(document.getElementById("compEtapa").value || 1),
+        status: document.getElementById("compStatus").value,
+        proxima_acao: document.getElementById("compProximaAcao").value.trim()
+      };
+
+      if (!sb) {
+        const idx = estado.compradores.findIndex(c => c.id === registro.id || c.telefone_normalizado === telNorm);
+        if (idx >= 0) estado.compradores[idx] = registro;
+        else estado.compradores.unshift(registro);
+        localStorage.setItem("ii_2030_sandbox", JSON.stringify(estado.compradores));
+        fecharModalComprador();
+        atualizarInterface();
+        return;
+      }
+
+      try {
+        const { data: compSalvo, error: errComp } = await sb
+          .from("ii_compradores")
+          .upsert({
+            ...(id ? { id } : {}),
+            nome: registro.nome,
+            telefone_raw: registro.telefone,
+            telefone_normalizado: registro.telefone_normalizado,
+            status_operacional: registro.status,
+            temperatura: registro.temperatura,
+            etapa_jornada: registro.etapa,
+            proxima_acao: registro.proxima_acao,
+            ultimo_contato: new Date().toISOString()
+          }, { onConflict: "telefone_normalizado" })
+          .select()
+          .single();
+
+        if (errComp) throw errComp;
+
+        const { error: errPref } = await sb
+          .from("ii_preferencias")
+          .upsert({
+            comprador_id: compSalvo.id,
+            finalidade: registro.finalidade,
+            tipo_imovel: registro.tipo_imovel,
+            valor_min: registro.valor_min,
+            valor_max: registro.valor_max,
+            bairro_id: registro.bairro_id || null,
+            quartos: registro.quartos,
+            financiamento: registro.financiamento,
+            entrada_disponivel: registro.entrada,
+            prazo_compra: registro.prazo
+          }, { onConflict: "comprador_id" });
+
+        if (errPref) throw errPref;
+
+        fecharModalComprador();
+        await carregarDados();
+      } catch (err) {
+        alert("Erro ao salvar no Supabase: " + err.message);
+      }
+    }
+
+    popularSelectsBairros();
+    carregarDados();
+  </script>
+</body>
+</html>

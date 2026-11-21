@@ -1039,9 +1039,14 @@
 
     async function salvarComprador(event) {
       event.preventDefault();
+      const telRaw = document.getElementById("compTelefone").value.trim();
+      const telNorm = normalizarTelefone(telRaw);
+
       const payload = {
         nome: document.getElementById("compNome").value.trim(),
-        telefone: normalizarTelefone(document.getElementById("compTelefone").value),
+        telefone: telNorm,
+        telefone_raw: telRaw,
+        telefone_normalizado: telNorm,
         finalidade: document.getElementById("compFinalidade").value,
         tipo_imovel: document.getElementById("compTipo").value,
         bairro_desejado: document.getElementById("compBairro").value,
@@ -1057,7 +1062,6 @@
         proxima_acao: document.getElementById("compProximaAcao").value.trim(),
         created_at: new Date().toISOString()
       };
-
       if (sb) {
         const { error } = await sb.from("ii_compradores").insert([payload]);
         if (error) {

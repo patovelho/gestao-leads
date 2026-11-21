@@ -827,7 +827,7 @@
       return `https://wa.me/${telNorm}?text=${encodeURIComponent(mensagem)}`;
     }
 
-    function montarLinksBuscaImovel(c) {
+  function montarLinksBuscaImovel(c) {
       const bairro = (c.bairro_desejado || "Saquarema").trim();
       const tipo = (c.tipo_imovel || "casa").toLowerCase();
       const quartos = Number(c.quartos_min || 0);
@@ -835,18 +835,21 @@
       const quartosTexto = quartos > 0 ? `${quartos} quartos` : "";
 
       // 1. Busca na sua própria carteira (andrereisimoveis.com.br)
-      const queryCarteira = `site:andrereisimoveis.com.br ${tipo} ${bairro} ${quartosTexto}`.trim();
+      const queryCarteira = `site:andrereisimoveis.com.br venda ${tipo} ${bairro} ${quartosTexto}`.replace(/\s+/g, " ").trim();
       const urlCarteira = `https://www.google.com/search?q=${encodeURIComponent(queryCarteira)}`;
 
-      // 2. Busca direta na OLX Saquarema já filtrada pelo teto de preço (pe)
-      const termoOlx = `${tipo} ${bairro} ${quartosTexto}`.trim();
-      const paramsOlx = new URLSearchParams({ q: termoOlx });
+      // 2. Busca na OLX focada em VENDA em Saquarema até o valor máximo (pe)
+      const termoOlx = `venda ${tipo} ${bairro} Saquarema ${quartosTexto}`.replace(/\s+/g, " ").trim();
+      const paramsOlx = new URLSearchParams({
+        q: termoOlx,
+        ret: "1"
+      });
       if (valorMax > 0) paramsOlx.set("pe", String(valorMax));
-      const urlOlx = `https://www.olx.com.br/imoveis/venda/estado-rj/norte-do-estado-do-rio/saquarema?${paramsOlx.toString()}`;
+      const urlOlx = `https://www.olx.com.br/imoveis/estado-rj/norte-do-estado-do-rio/saquarema?${paramsOlx.toString()}`;
 
-      // 3. Busca no Google (Portais + Direto com proprietário em Saquarema)
+      // 3. Busca no Google (Portais em VENDA em Saquarema)
       const valorTexto = valorMax > 0 ? `até ${Math.round(valorMax / 1000)} mil` : "";
-      const queryGoogle = `"${tipo}" "${bairro}" "Saquarema" ${quartosTexto} ${valorTexto} (site:olx.com.br OR site:zapimoveis.com.br OR site:vivareal.com.br)`.replace(/\s+/g, " ").trim();
+      const queryGoogle = `venda "${tipo}" "${bairro}" "Saquarema" ${quartosTexto} ${valorTexto} (site:olx.com.br OR site:zapimoveis.com.br OR site:vivareal.com.br)`.replace(/\s+/g, " ").trim();
       const urlGoogle = `https://www.google.com/search?q=${encodeURIComponent(queryGoogle)}`;
 
       return { urlCarteira, urlOlx, urlGoogle };

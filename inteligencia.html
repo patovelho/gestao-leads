@@ -42,6 +42,8 @@
     .btn:hover { border-color: var(--accent); }
     .btn-primary { background: var(--accent-dark); border-color: var(--accent); color: #fff; }
     .btn-primary:hover { background: #0369a1; }
+    .btn-danger { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5; }
+    .btn-danger:hover { background: rgba(239, 68, 68, 0.25); }
 
     /* Tabs */
     .tabs { display: flex; gap: 8px; margin-bottom: 22px; flex-wrap: wrap; }
@@ -116,17 +118,25 @@
       background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
       max-width: 720px; width: 100%; max-height: 90vh; overflow-y: auto; padding: 22px;
     }
+    .modal.modal-sm { max-width: 520px; }
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 14px; }
+    .field { margin-bottom: 12px; }
+    .form-grid .field { margin-bottom: 0; }
     .field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; }
     .field input, .field select, .field textarea {
       width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border);
-      padding: 8px 10px; border-radius: 8px; font-size: 0.88rem;
+      padding: 9px 10px; border-radius: 8px; font-size: 0.88rem;
     }
-    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
 
     .status-banner {
       background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.35);
       color: #fde68a; padding: 10px 14px; border-radius: 8px; font-size: 0.84rem; margin-bottom: 18px;
+      display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    .security-note {
+      background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25);
+      color: #bae6fd; padding: 10px 12px; border-radius: 8px; font-size: 0.8rem; margin-top: 8px;
     }
     footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); }
   </style>
@@ -140,12 +150,14 @@
       </div>
       <div class="header-actions">
         <a href="index.html" class="btn">← Voltar ao Hub</a>
+        <button class="btn" onclick="abrirModalConfig()">⚙️ Config</button>
         <button class="btn btn-primary" onclick="abrirModalComprador()">+ Novo Comprador</button>
       </div>
     </header>
 
     <div id="statusConexao" class="status-banner">
-      Conectando à camada isolada (tabelas <code>ii_*</code>)... Configure <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> no script para sincronizar em nuvem.
+      <span id="statusTexto">Verificando configuração do Supabase...</span>
+      <button class="btn" style="padding: 5px 10px; font-size: 0.8rem;" onclick="abrirModalConfig()">Configurar Conexão</button>
     </div>
 
     <div class="tabs">
@@ -256,6 +268,36 @@
     <footer>
       André Reis Imóveis Ltda • CRECI/RJ 86.401 · Inteligência Imobiliária 2030 (Base Isolada)
     </footer>
+  </div>
+
+  <!-- MODAL CONFIGURAÇÃO SUPABASE -->
+  <div class="modal-backdrop" id="modalConfig">
+    <div class="modal modal-sm">
+      <h2>⚙️ Configuração de Conexão (Supabase)</h2>
+      <p class="card-desc">As credenciais ficam salvas apenas neste navegador (<code>localStorage</code>) e não são expostas no código-fonte.</p>
+      <form id="formConfig" onsubmit="salvarConfig(event)">
+        <div class="field">
+          <label>Supabase Project URL *</label>
+          <input type="url" id="cfgUrl" placeholder="https://xxxxxxxxxxxx.supabase.co" required />
+        </div>
+        <div class="field">
+          <label>Chave Pública (anon / sb_publishable_...) *</label>
+          <input type="password" id="cfgKey" placeholder="sb_publishable_..." required />
+          <div style="margin-top: 6px; display: flex; align-items: center; gap: 6px;">
+            <input type="checkbox" id="cfgMostrarChave" onchange="toggleMostrarChave()" />
+            <label for="cfgMostrarChave" style="margin: 0; cursor: pointer;">Mostrar chave digitada</label>
+          </div>
+        </div>
+        <div class="security-note">
+          <strong>Regra de segurança:</strong> Use somente a chave pública (<code>sb_publishable_</code> ou <code>anon</code>). Nunca cole a chave secreta (<code>sb_secret_</code> ou <code>service_role</code>).
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-danger" onclick="limparConfig()">Limpar Dados</button>
+          <button type="button" class="btn" onclick="fecharModalConfig()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Salvar e Conectar</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- MODAL CADASTRO / EDIÇÃO -->
@@ -370,15 +412,66 @@
   </div>
 
   <script>
-    // =========================================================================
-    // CONFIGURAÇÃO SUPABASE (Use APENAS a chave pública anon aqui; nunca service_role)
-    // =========================================================================
-    const SUPABASE_URL = "https://tldylbaxzpbhifluutsb.supabase.co";      // Ex: "https://seuprojeto.supabase.co"
-    const SUPABASE_ANON_KEY = "sb_publishable_JlBJOpxz7Sjs2UsrIGnfFA_hB8kSBCZ"; // Ex: "eyJhbGciOiJIUzI1NiIsInR5cCI6..."
+    const STORAGE_CFG_KEY = "ii_2030_supabase_cfg";
+    let sb = null;
 
-    const sb = (SUPABASE_URL && SUPABASE_ANON_KEY)
-      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-      : null;
+    function obterConfigSalva() {
+      try {
+        return JSON.parse(localStorage.getItem(STORAGE_CFG_KEY) || "null");
+      } catch {
+        return null;
+      }
+    }
+
+    function inicializarClienteSupabase() {
+      const cfg = obterConfigSalva();
+      if (cfg && cfg.url && cfg.key) {
+        sb = window.supabase.createClient(cfg.url.trim(), cfg.key.trim());
+      } else {
+        sb = null;
+      }
+    }
+
+    function abrirModalConfig() {
+      const cfg = obterConfigSalva();
+      document.getElementById("cfgUrl").value = cfg?.url || "";
+      document.getElementById("cfgKey").value = cfg?.key || "";
+      document.getElementById("cfgKey").type = "password";
+      document.getElementById("cfgMostrarChave").checked = false;
+      document.getElementById("modalConfig").classList.add("open");
+    }
+
+    function fecharModalConfig() {
+      document.getElementById("modalConfig").classList.remove("open");
+    }
+
+    function toggleMostrarChave() {
+      const input = document.getElementById("cfgKey");
+      input.type = document.getElementById("cfgMostrarChave").checked ? "text" : "password";
+    }
+
+    async function salvarConfig(e) {
+      e.preventDefault();
+      const url = document.getElementById("cfgUrl").value.trim().replace(/\/+$/, "");
+      const key = document.getElementById("cfgKey").value.trim();
+
+      if (key.startsWith("sb_secret_") || key.includes("service_role")) {
+        alert("Bloqueado por segurança: não utilize chave secreta (sb_secret / service_role) no navegador. Use apenas a chave pública (sb_publishable / anon).");
+        return;
+      }
+
+      localStorage.setItem(STORAGE_CFG_KEY, JSON.stringify({ url, key }));
+      inicializarClienteSupabase();
+      fecharModalConfig();
+      await carregarDados();
+    }
+
+    async function limparConfig() {
+      localStorage.removeItem(STORAGE_CFG_KEY);
+      sb = null;
+      fecharModalConfig();
+      await carregarDados();
+    }
 
     const BAIRROS_PADRAO = [
       "Bacaxá", "Itaúna", "Porto Novo", "Porto da Roça", "Boqueirão",
@@ -421,10 +514,15 @@
 
     async function carregarDados() {
       const banner = document.getElementById("statusConexao");
+      const statusTexto = document.getElementById("statusTexto");
+
       if (!sb) {
         const salvo = localStorage.getItem("ii_2030_sandbox");
         estado.compradores = salvo ? JSON.parse(salvo) : [];
-        banner.innerHTML = "Modo Sandbox Local ativo (zero impacto no CRM). Insira <code>SUPABASE_URL</code> e <code>SUPABASE_ANON_KEY</code> no arquivo para conectar às tabelas <code>ii_*</code>.";
+        banner.style.background = "rgba(245, 158, 11, 0.12)";
+        banner.style.borderColor = "rgba(245, 158, 11, 0.35)";
+        banner.style.color = "#fde68a";
+        statusTexto.innerHTML = "Modo Sandbox Local ativo (zero impacto no CRM). Clique em <strong>⚙️ Config</strong> para salvar sua URL e Chave do Supabase.";
         atualizarInterface();
         return;
       }
@@ -467,9 +565,12 @@
         banner.style.background = "rgba(34, 197, 94, 0.12)";
         banner.style.borderColor = "rgba(34, 197, 94, 0.35)";
         banner.style.color = "#bbf7d0";
-        banner.textContent = "Conectado ao Supabase · Tabelas isoladas ii_* ativas.";
+        statusTexto.textContent = "Conectado ao Supabase · Tabelas isoladas ii_* ativas.";
       } catch (e) {
-        banner.textContent = "Erro ao ler Supabase: " + e.message;
+        banner.style.background = "rgba(239, 68, 68, 0.12)";
+        banner.style.borderColor = "rgba(239, 68, 68, 0.35)";
+        banner.style.color = "#fecaca";
+        statusTexto.textContent = "Erro ao ler Supabase: " + e.message;
       }
 
       popularSelectsBairros();
@@ -484,7 +585,6 @@
       const pct350 = ativos.length ? Math.round((ate350.length / ativos.length) * 100) : 0;
       document.getElementById("kpiAte350").textContent = ativos.length ? `${ate350.length} (${pct350}%)` : "0";
 
-      // Contagem por bairro
       const porBairro = {};
       ativos.forEach(c => {
         porBairro[c.bairro_nome] = (porBairro[c.bairro_nome] || 0) + 1;
@@ -495,7 +595,6 @@
         ? `${rankingBairros[0][1]} comprador(es) ativo(s) no topo`
         : "Aguardando cadastros";
 
-      // Faixas de preço
       const faixas = [
         { label: "Até R$ 200 mil", min: 0, max: 200000 },
         { label: "R$ 200 a 250 mil", min: 200001, max: 250000 },
@@ -520,7 +619,6 @@
         `;
       });
 
-      // Recomendações automáticas de captação
       const recDiv = document.getElementById("containerRecomendacoes");
       const grupos = {};
       ativos.forEach(c => {
@@ -728,6 +826,7 @@
       }
     }
 
+    inicializarClienteSupabase();
     popularSelectsBairros();
     carregarDados();
   </script>

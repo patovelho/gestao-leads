@@ -389,7 +389,7 @@
               <option value="5">5 - Fechamento</option>
             </select>
           </div>
-          <div class="field">
+        <div class="field">
             <label>Status Operacional</label>
             <select id="compStatus">
               <option value="ativo" selected>Ativo</option>
@@ -398,6 +398,13 @@
               <option value="desistiu">Desistiu</option>
             </select>
           </div>
+          <div class="field">
+            <label>Acompanhamento Comercial</label>
+            <button type="button" class="btn" style="width: 100%; justify-content: center; border-color: var(--warning); color: #fde68a;" onclick="abrirFollowupComprador()">
+              🔔 Ir para Follow-up
+            </button>
+          </div>
+        </div>
         </div>
         <div class="field" style="margin-top: 12px;">
           <label>Próxima Ação Recomendada</label>
@@ -415,6 +422,29 @@
     const STORAGE_CFG_KEY = "ii_2030_supabase_cfg";
     let sb = null;
 
+    function abrirFollowupComprador() {
+      const nome = document.getElementById("compNome").value.trim();
+      const tel = normalizarTelefone(document.getElementById("compTelefone").value);
+      const selBairro = document.getElementById("compBairro");
+      const bairro = selBairro.options[selBairro.selectedIndex]?.text || "";
+      const acao = document.getElementById("compProximaAcao").value.trim();
+
+      if (!nome || !tel) {
+        alert("Preencha pelo menos o Nome e o Telefone antes de abrir o Follow-up.");
+        return;
+      }
+
+      const params = new URLSearchParams({
+        origem: "inteligencia2030",
+        nome,
+        telefone: tel,
+        bairro,
+        acao
+      });
+
+      window.open(`followup.html?${params.toString()}`, "_blank");
+    }
+    
     function obterConfigSalva() {
       try {
         return JSON.parse(localStorage.getItem(STORAGE_CFG_KEY) || "null");

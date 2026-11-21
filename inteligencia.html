@@ -756,6 +756,14 @@
       return digits.startsWith("55") ? digits : "55" + digits;
     }
 
+    function formatarMoeda(valor) {
+      return Number(valor || 0).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+        maximumFractionDigits: 0
+      });
+    }
+
     function trocarAba(tabName) {
       document.querySelectorAll(".tab-btn").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.tab === tabName);
@@ -852,6 +860,147 @@
       }
     }
 
+    function gerarRecomendacoesCaptacao(ativos) {
+      const container = document.getElementById("recomendacoesLista");
+      if (!ativos.length) {
+        container.className = "empty-state";
+        container.innerHTML = "Cadastre ou importe compradores ativos para gerar alertas prioritários de captação em Saquarema.";
+        return;
+      }
+
+      const pesoTemp = { quente: 3, morno: 2, frio: 1 };
+      const pesoPrazo = { imediato: 3, "90_dias": 2, "180_dias": 1, longo_prazo: 0 };
+      const grupos = {};
+
+      ativos.forEach((c) => {
+        const bairro = c.bairro_desejado || "Saquarema";
+        const tipo = (c.tipo_imovel || "casa").toLowerCase();
+        const chave = `${bairro}__${tipo}`;
+        const temp = (c.temperatura || "morno").toLowerCase();
+        const prazo = (c.prazo_compra || "90_dias").toLowerCase();
+        const vMax = Number(c.valor_maximo || 0);
+        const quartos = Number(c.quartos_min || 0);
+
+        if (!grupos[chave]) {
+          grupos[chave] = {
+            bairro,
+            tipo,
+            total: 0,
+            quentes: 0,
+            imediatos: 0,
+            score: 0,
+            maxValor: 0,
+            somaValor: 0,
+            quartosMax: 0
+          };
+        }
+
+        const g = grupos[chave];
+        g.total += 1;
+        if (temp === "quente") g.quentes += 1;
+        if (prazo === "imediato") g.imediatos += 1;
+        g.score += (pesoTemp[temp] || 1) + (pesoPrazo[prazo] || 1);
+        g.somaValor += vMax;
+        if (vMax > g.maxValor) g.maxValor = vMax;
+        if (quartos > g.quartosMax) g.quartosMax = quartos;
+      });
+
+      const ranking = Object.values(grupos)
+        .sort((a, b) => b.score - a.score || b.total - a.total)
+        .slice(0, 4);
+
+      container.className = "";
+      container.innerHTML = ranking.map((g) => {
+        const tipoLabel = g.tipo.charAt(0).toUpperCase() + g.tipo.slice(1);
+        const mediaGrupo = Math.round(g.somaValor / g.total);
+        const urgenciaTag = g.quentes > 0 || g.imediatos > 0
+          ? `<span class="pill quente">Alta Prioridade</span>`
+          : `<span class="pill morno">Demanda Ativa</span>`;
+
+        const params = new URLSearchParams({
+          bairro: g.bairro,
+          tipo: g.tipo,
+          valor: String(g.maxValor)
+        });
+
+        return `
+          <div style="border: 1px solid var(--border); background: var(--bg); border-radius: 10px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div>
+              <div style="font-weight: 700; font-size: 0.92rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <span>${tipoLabel} em ${g.bairro} (${g.quartosMax}+ quartos)</span>
+                ${urgenciaTag}
+              </div>
+              <div style="font-size: 0.82rem; color: var(--muted); margin-top: 4px;">
+                <strong>${g.total}</strong> comprador(es) ativo(s) · ${g.quentes} quente(s) · Ticket médio ${formatarMoeda(mediaGrupo)} (teto ${formatarMoeda(g.maxValor)})
+              </div>
+            </div>
+            <a href="captacao.html?${params.toString()}" class="btn" style="font-size: 0.8rem; padding: 6px 10px;">
+              + Captar Perfil
+            </a>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function atualizarDistribuicaoEIdi(ativos) {
+      const total = ativos.length;
+      const faixas = { f200: 0, f250: 0, f300: 0, acima: 0 };
+      const porBairro = {};
+
+      ativos.forEach((c) => {
+        const v = Number(c.valor_maximo || 0);
+        if (v <= 200000) faixas.f200 += 1;
+        else if (v <= 250000) faixas.f250 += 1;
+        else if (v <= 300000) faixas.f300 += 1;
+        else faixas.acima += 1;
+
+        const b = c.bairro_desejado || "Outros";
+        if (!porBairro[b]) porBairro[b] = { bairro: b, demanda: 0, quentes: 0 };
+        porBairro[b].demanda += 1;
+        if ((c.temperatura || "").toLowerCase() === "quente") porBairro[b].quentes += 1;
+      });
+
+      const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
+      document.getElementById("fx-200").textContent = faixas.f200;
+      document.getElementById("bar-200").style.width = pct(faixas.f200) + "%";
+      document.getElementById("fx-250").textContent = faixas.f250;
+      document.getElementById("bar-250").style.width = pct(faixas.f250) + "%";
+      document.getElementById("fx-300").textContent = faixas.f300;
+      document.getElementById("bar-300").style.width = pct(faixas.f300) + "%";
+      document.getElementById("fx-acima").textContent = faixas.acima;
+      document.getElementById("bar-acima").style.width = pct(faixas.acima) + "%";
+
+      const listaBairros = Object.values(porBairro).sort((a, b) => b.demanda - a.demanda);
+      const idiBody = document.getElementById("idiTabelaBody");
+
+      if (!listaBairros.length) {
+        document.getElementById("kpiTopBairro").textContent = "—";
+        document.getElementById("kpiTopBairroScore").textContent = "Aguardando dados";
+        idiBody.innerHTML = '<tr><td colspan="5" class="empty-state">Sem dados de snapshot de demanda para calcular o IDI.</td></tr>';
+        return;
+      }
+
+      const top = listaBairros[0];
+      const topScore = Math.min(100, top.demanda * 15 + top.quentes * 10);
+      document.getElementById("kpiTopBairro").textContent = top.bairro;
+      document.getElementById("kpiTopBairroScore").textContent = `Score IDI ${topScore}/100 · ${top.demanda} comprador(es)`;
+
+      idiBody.innerHTML = listaBairros.map((item) => {
+        const idi = Math.min(100, item.demanda * 15 + item.quentes * 10);
+        const classe = idi >= 60 ? "quente" : idi >= 30 ? "morno" : "frio";
+        const label = idi >= 60 ? "Alta Pressão" : idi >= 30 ? "Moderado" : "Inicial";
+        return `
+          <tr>
+            <td><strong>${item.bairro}</strong></td>
+            <td>${item.demanda}</td>
+            <td>0 (v1)</td>
+            <td><strong>${idi}</strong> / 100</td>
+            <td><span class="pill ${classe}">${label}</span></td>
+          </tr>
+        `;
+      }).join("");
+    }
+
     function renderizarPainel() {
       const ativos = compradoresCache.filter((c) => (c.status_operacional || "ativo") === "ativo");
       document.getElementById("kpiCompradoresAtivos").textContent = ativos.length;
@@ -861,11 +1010,10 @@
 
       const somaMax = ativos.reduce((acc, c) => acc + Number(c.valor_maximo || 0), 0);
       const media = ativos.length ? Math.round(somaMax / ativos.length) : 0;
-      document.getElementById("kpiTicketMedio").textContent = media.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-        maximumFractionDigits: 0
-      });
+      document.getElementById("kpiTicketMedio").textContent = formatarMoeda(media);
+
+      gerarRecomendacoesCaptacao(ativos);
+      atualizarDistribuicaoEIdi(ativos);
 
       const tbody = document.getElementById("radarTabelaBody");
       if (!compradoresCache.length) {
@@ -875,17 +1023,12 @@
 
       tbody.innerHTML = compradoresCache.map((c) => {
         const temp = (c.temperatura || "morno").toLowerCase();
-        const valorFmt = Number(c.valor_maximo || 0).toLocaleString("pt-BR", {
-          style: "currency",
-          currency: "BRL",
-          maximumFractionDigits: 0
-        });
         return `
           <tr>
             <td><strong>${c.nome || "—"}</strong></td>
             <td>${c.telefone || "—"}</td>
             <td>${c.bairro_desejado || "—"}</td>
-            <td>${valorFmt}</td>
+            <td>${formatarMoeda(c.valor_maximo)}</td>
             <td><span class="pill ${temp}">${temp}</span></td>
             <td>${c.status_operacional || "ativo"}</td>
             <td>${c.proxima_acao || "—"}</td>
@@ -932,9 +1075,9 @@
     }
 
     function abrirFollowupComprador() {
-      const nome = encodeURIComponent(document.getElementById("compNome").value.trim());
-      const tel = encodeURIComponent(normalizarTelefone(document.getElementById("compTelefone").value));
-      const acao = encodeURIComponent(document.getElementById("compProximaAcao").value.trim());
+      const nome = document.getElementById("compNome").value.trim();
+      const tel = normalizarTelefone(document.getElementById("compTelefone").value);
+      const acao = document.getElementById("compProximaAcao").value.trim();
       const params = new URLSearchParams();
       if (nome) params.set("nome", nome);
       if (tel) params.set("telefone", tel);

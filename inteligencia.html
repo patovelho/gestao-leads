@@ -747,8 +747,11 @@
 
   <script>
     const STORAGE_CFG_KEY = "ii_2030_supabase_cfg";
+    const STORAGE_BAIRROS_KEY = "ii_2030_bairros_extra";
+    const STORAGE_LOCAL_COMP_KEY = "ii_2030_compradores_local";
     let sb = null;
     let compradoresCache = [];
+    let compradorEmEdicaoId = null;
 
     function normalizarTelefone(raw) {
       const digits = String(raw || "").replace(/\D/g, "");
@@ -764,6 +767,50 @@
       });
     }
 
+    function carregarBairrosSalvos() {
+      const select = document.getElementById("compBairro");
+      if (!select) return;
+      const extras = JSON.parse(localStorage.getItem(STORAGE_BAIRROS_KEY) || "[]");
+      const existentes = Array.from(select.options).map((o) => o.value.toLowerCase());
+      extras.forEach((nomeBairro) => {
+        const limpo = String(nomeBairro || "").trim();
+        if (limpo && !existentes.includes(limpo.toLowerCase())) {
+          const opt = document.createElement("option");
+          opt.value = limpo;
+          opt.textContent = limpo;
+          select.appendChild(opt);
+          existentes.push(limpo.toLowerCase());
+        }
+      });
+    }
+
+    function adicionarBairroRapido() {
+      const nome = prompt("Digite o nome do novo bairro em Saquarema:");
+      if (!nome) return;
+      const limpo = nome.trim();
+      if (!limpo) return;
+
+      const select = document.getElementById("compBairro");
+      const existente = Array.from(select.options).find(
+        (o) => o.value.toLowerCase() === limpo.toLowerCase()
+      );
+
+      if (existente) {
+        select.value = existente.value;
+        return;
+      }
+
+      const opt = document.createElement("option");
+      opt.value = limpo;
+      opt.textContent = limpo;
+      select.appendChild(opt);
+      select.value = limpo;
+
+      const extras = JSON.parse(localStorage.getItem(STORAGE_BAIRROS_KEY) || "[]");
+      extras.push(limpo);
+      localStorage.setItem(STORAGE_BAIRROS_KEY, JSON.stringify(extras));
+    }
+
     function trocarAba(tabName) {
       document.querySelectorAll(".tab-btn").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.tab === tabName);
@@ -773,11 +820,65 @@
       });
     }
 
-    function abrirModalComprador() {
+    function abrirModalComprador(comprador = null) {
+      carregarBairrosSalvos();
+      const tituloEl = document.querySelector("#modalCompradorBackdrop .modal-title");
+      const btnSubmit = document.querySelector('#formComprador button[type="submit"]');
+
+      if (comprador) {
+        compradorEmEdicaoId = comprador.id ?? comprador._localId ?? null;
+        if (tituloEl) tituloEl.textContent = "Editar Comprador no Radar";
+        if (btnSubmit) btnSubmit.textContent = "Salvar Alterações";
+
+        const selectBairro = document.getElementById("compBairro");
+        if (comprador.bairro_desejado) {
+          const jaExiste = Array.from(selectBairro.options).some(
+            (o) => o.value.toLowerCase() === String(comprador.bairro_desejado).toLowerCase()
+          );
+          if (!jaExiste) {
+            const opt = document.createElement("option");
+            opt.value = comprador.bairro_desejado;
+            opt.textContent = comprador.bairro_desejado;
+            selectBairro.appendChild(opt);
+          }
+          selectBairro.value = comprador.bairro_desejado;
+        }
+
+        document.getElementById("compNome").value = comprador.nome || "";
+        document.getElementById("compTelefone").value = comprador.telefone_raw || comprador.telefone || "";
+        document.getElementById("compFinalidade").value = comprador.finalidade || "moradia";
+        document.getElementById("compTipo").value = comprador.tipo_imovel || "casa";
+        document.getElementById("compQuartos").value = comprador.quartos_min ?? 2;
+        document.getElementById("compValorMin").value = comprador.valor_minimo ?? 0;
+        document.getElementById("compValorMax").value = comprador.valor_maximo ?? 0;
+        document.getElementById("compFinanciamento").value = comprador.financiamento || "sim";
+        document.getElementById("compEntrada").value = comprador.entrada_disponivel ?? 0;
+        document.getElementById("compPrazo").value = comprador.prazo_compra || "90_dias";
+        document.getElementById("compTemperatura").value = comprador.temperatura || "morno";
+        document.getElementById("compEtapa").value = comprador.etapa_jornada ?? 1;
+        document.getElementById("compStatus").value = comprador.status_operacional || "ativo";
+        document.getElementById("compProximaAcao").value = comprador.proxima_acao || "";
+      } else {
+        compradorEmEdicaoId = null;
+        if (tituloEl) tituloEl.textContent = "Cadastrar Comprador no Radar";
+        if (btnSubmit) btnSubmit.textContent = "Salvar no Radar";
+        document.getElementById("formComprador").reset();
+      }
+
       document.getElementById("modalCompradorBackdrop").classList.add("open");
     }
 
+    function editarCompradorPorChave(chave) {
+      const encontrado = compradoresCache.find(
+        (c) => String(c.id ?? c._localId) === String(chave)
+      );
+      if (encontrado) {
+        abrirModalComprador(encontrado);
+      }
+    }
+
     function fecharModalComprador() {
+      compradorEmEdicaoId = null;
       document.getElementById("modalCompradorBackdrop").classList.remove("open");
     }
 
@@ -829,6 +930,13 @@
     }
 
     function inicializarSupabase() {
+      carregarBairrosSalvos();
+      const locais = JSON.parse(localStorage.getItem(STORAGE_LOCAL_COMP_KEY) || "[]");
+      if (locais.length && !compradoresCache.length) {
+        compradoresCache = locais;
+        renderizarPainel();
+      }
+
       const saved = JSON.parse(localStorage.getItem(STORAGE_CFG_KEY) || "{}");
       if (!saved.url || !saved.key || !window.supabase) {
         atualizarStatusBanner(false, "Supabase não configurado neste navegador. Clique em Configurar Conexão.");
@@ -1017,21 +1125,27 @@
 
       const tbody = document.getElementById("radarTabelaBody");
       if (!compradoresCache.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Nenhum comprador cadastrado.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Nenhum comprador cadastrado.</td></tr>';
         return;
       }
 
-      tbody.innerHTML = compradoresCache.map((c) => {
+      tbody.innerHTML = compradoresCache.map((c, idx) => {
         const temp = (c.temperatura || "morno").toLowerCase();
+        const chave = String(c.id ?? c._localId ?? idx);
         return `
           <tr>
             <td><strong>${c.nome || "—"}</strong></td>
-            <td>${c.telefone || "—"}</td>
+            <td>${c.telefone_raw || c.telefone || "—"}</td>
             <td>${c.bairro_desejado || "—"}</td>
             <td>${formatarMoeda(c.valor_maximo)}</td>
             <td><span class="pill ${temp}">${temp}</span></td>
             <td>${c.status_operacional || "ativo"}</td>
             <td>${c.proxima_acao || "—"}</td>
+            <td>
+              <button type="button" class="btn" style="padding: 4px 10px; font-size: 0.78rem;" onclick="editarCompradorPorChave('${chave}')">
+                Editar
+              </button>
+            </td>
           </tr>
         `;
       }).join("");
@@ -1059,18 +1173,43 @@
         temperatura: document.getElementById("compTemperatura").value,
         etapa_jornada: Number(document.getElementById("compEtapa").value || 1),
         status_operacional: document.getElementById("compStatus").value,
-        proxima_acao: document.getElementById("compProximaAcao").value.trim(),
-        created_at: new Date().toISOString()
+        proxima_acao: document.getElementById("compProximaAcao").value.trim()
       };
+
       if (sb) {
-        const { error } = await sb.from("ii_compradores").insert([payload]);
-        if (error) {
-          alert("Erro ao salvar no Supabase: " + error.message);
-          return;
+        if (compradorEmEdicaoId) {
+          const { error } = await sb
+            .from("ii_compradores")
+            .update(payload)
+            .eq("id", compradorEmEdicaoId);
+          if (error) {
+            alert("Erro ao atualizar no Supabase: " + error.message);
+            return;
+          }
+        } else {
+          payload.created_at = new Date().toISOString();
+          const { error } = await sb.from("ii_compradores").insert([payload]);
+          if (error) {
+            alert("Erro ao salvar no Supabase: " + error.message);
+            return;
+          }
         }
         await carregarDadosInteligencia();
       } else {
-        compradoresCache.unshift(payload);
+        if (compradorEmEdicaoId) {
+          compradoresCache = compradoresCache.map((item) =>
+            String(item.id ?? item._localId) === String(compradorEmEdicaoId)
+              ? { ...item, ...payload }
+              : item
+          );
+        } else {
+          compradoresCache.unshift({
+            ...payload,
+            _localId: "loc_" + Date.now(),
+            created_at: new Date().toISOString()
+          });
+        }
+        localStorage.setItem(STORAGE_LOCAL_COMP_KEY, JSON.stringify(compradoresCache));
         renderizarPainel();
       }
 

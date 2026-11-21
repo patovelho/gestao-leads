@@ -546,7 +546,7 @@
                 <th>Temperatura</th>
                 <th>Status</th>
                 <th>Próxima Ação</th>
-                <th>Ações</th>
+                <th>Buscar Imóvel / Ações</th>
               </tr>
             </thead>
             <tbody id="radarTabelaBody">
@@ -825,6 +825,31 @@
 
       const mensagem = `Olá ${primeiroNome}, aqui é André Reis (André Reis Imóveis). Encontrei uma opção de ${tipo} em ${bairro}${faixaTexto} que combina com o seu perfil. Podemos conversar?`;
       return `https://wa.me/${telNorm}?text=${encodeURIComponent(mensagem)}`;
+    }
+
+    function montarLinksBuscaImovel(c) {
+      const bairro = (c.bairro_desejado || "Saquarema").trim();
+      const tipo = (c.tipo_imovel || "casa").toLowerCase();
+      const quartos = Number(c.quartos_min || 0);
+      const valorMax = Number(c.valor_maximo || 0);
+      const quartosTexto = quartos > 0 ? `${quartos} quartos` : "";
+
+      // 1. Busca na sua própria carteira (andrereisimoveis.com.br)
+      const queryCarteira = `site:andrereisimoveis.com.br ${tipo} ${bairro} ${quartosTexto}`.trim();
+      const urlCarteira = `https://www.google.com/search?q=${encodeURIComponent(queryCarteira)}`;
+
+      // 2. Busca direta na OLX Saquarema já filtrada pelo teto de preço (pe)
+      const termoOlx = `${tipo} ${bairro} ${quartosTexto}`.trim();
+      const paramsOlx = new URLSearchParams({ q: termoOlx });
+      if (valorMax > 0) paramsOlx.set("pe", String(valorMax));
+      const urlOlx = `https://www.olx.com.br/imoveis/venda/estado-rj/norte-do-estado-do-rio/saquarema?${paramsOlx.toString()}`;
+
+      // 3. Busca no Google (Portais + Direto com proprietário em Saquarema)
+      const valorTexto = valorMax > 0 ? `até ${Math.round(valorMax / 1000)} mil` : "";
+      const queryGoogle = `"${tipo}" "${bairro}" "Saquarema" ${quartosTexto} ${valorTexto} (site:olx.com.br OR site:zapimoveis.com.br OR site:vivareal.com.br)`.replace(/\s+/g, " ").trim();
+      const urlGoogle = `https://www.google.com/search?q=${encodeURIComponent(queryGoogle)}`;
+
+      return { urlCarteira, urlOlx, urlGoogle };
     }
 
     function carregarBairrosSalvos() {
@@ -1194,6 +1219,7 @@
         const chave = String(c.id ?? c._localId ?? idx);
         const telFormatado = formatarTelefoneExibicao(c.telefone_raw || c.telefone);
         const waUrl = montarLinkWhatsApp(c);
+        const buscas = montarLinksBuscaImovel(c);
 
         const waBotao = waUrl
           ? `<a href="${waUrl}" target="_blank" rel="noopener noreferrer" class="btn-wa" title="Chamar no WhatsApp">💬 ${telFormatado}</a>`
@@ -1209,9 +1235,20 @@
             <td>${c.status_operacional || "ativo"}</td>
             <td>${c.proxima_acao || "—"}</td>
             <td>
-              <button type="button" class="btn" style="padding: 4px 10px; font-size: 0.78rem;" onclick="editarCompradorPorChave('${chave}')">
-                Editar
-              </button>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <a href="${buscas.urlCarteira}" target="_blank" rel="noopener noreferrer" class="btn" style="padding: 4px 8px; font-size: 0.76rem;" title="Buscar no site andrereisimoveis.com.br">
+                  🏠 Meu Site
+                </a>
+                <a href="${buscas.urlOlx}" target="_blank" rel="noopener noreferrer" class="btn" style="padding: 4px 8px; font-size: 0.76rem;" title="Buscar na OLX Saquarema até o valor máximo">
+                  🔎 OLX
+                </a>
+                <a href="${buscas.urlGoogle}" target="_blank" rel="noopener noreferrer" class="btn" style="padding: 4px 8px; font-size: 0.76rem;" title="Buscar no Google e Portais">
+                  🌐 Google
+                </a>
+                <button type="button" class="btn" style="padding: 4px 8px; font-size: 0.76rem;" onclick="editarCompradorPorChave('${chave}')">
+                  Editar
+                </button>
+              </div>
             </td>
           </tr>
         `;
